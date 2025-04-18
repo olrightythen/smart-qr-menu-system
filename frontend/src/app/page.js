@@ -1,7 +1,19 @@
+"use client";
+
+import Hero from "@/components/sections/Hero";
+import Features from "@/components/sections/Features";
+import HowItWorks from "@/components/sections/HowItWorks";
+import Testimonials from "@/components/sections/Testimonials";
+import CallToAction from "@/components/sections/CallToAction";
+
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-    Hey there! This is our homepage.
-    </div>
+    <>
+      <Hero />
+      <Features />
+      <HowItWorks />
+      <Testimonials />
+      <CallToAction />
+    </>
   );
 }
