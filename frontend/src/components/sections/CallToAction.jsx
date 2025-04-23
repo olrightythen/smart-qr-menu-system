@@ -76,7 +76,7 @@ export default function CallToAction() {
                     />
                     <Button 
                       type="submit" 
-                      className="bg-orange-500 hover:bg-orange-600 text-white"
+                      variant="orange"
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? 'Sending...' : 'Get Started'}
@@ -110,7 +110,7 @@ export default function CallToAction() {
         <div className="mt-24 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to get started?</h2>
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-            <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Button size="lg" variant="orange">
               Create Your QR Menu <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <Button size="lg" variant="outline">

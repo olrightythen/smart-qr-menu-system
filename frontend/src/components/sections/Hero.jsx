@@ -48,7 +48,7 @@ export default function Hero() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button
                 size="lg"
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                variant="orange"
               >
                 Get Started <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
