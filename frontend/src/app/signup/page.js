@@ -1,26 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowLeft, User, Mail, Lock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Store, Mail, Lock, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function Signup() {
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
+    restaurant_name: "",
     email: "",
+    location: "",
     password: "",
     confirmPassword: "",
   });
 
   const [errors, setErrors] = useState({
-    name: "",
+    restaurant_name: "",
     email: "",
+    location: "",
     password: "",
     confirmPassword: "",
   });
+
+  // Ensure component is mounted before using router
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -32,26 +43,24 @@ export default function Signup() {
 
   const validateForm = () => {
     const newErrors = {
-      name: "",
+      restaurant_name: "",
       email: "",
+      location: "",
       password: "",
       confirmPassword: "",
     };
     let isValid = true;
 
-    // Validate Name
-    if (!formData.name) {
-      newErrors.name = "Name is required";
+    if (!formData.restaurant_name.trim()) {
+      newErrors.restaurant_name = "Restaurant name is required";
       isValid = false;
-    } else {
-      const nameFormat = /^[a-zA-Z]+[a-zA-Z\s]*?[^0-9]$/;
-      if (!nameFormat.test(formData.name)) {
-        newErrors.name = "Enter a valid name";
-        isValid = false;
-      }
     }
 
-    // Validate Email
+    if (!formData.location.trim()) {
+      newErrors.location = "Location is required";
+      isValid = false;
+    }
+
     if (!formData.email) {
       newErrors.email = "Email is required";
       isValid = false;
@@ -63,26 +72,24 @@ export default function Signup() {
       }
     }
 
-    // Validate Password
     if (!formData.password) {
       newErrors.password = "Password is required";
       isValid = false;
     } else if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters long";
+      newErrors.password = "Minimum 8 characters required";
       isValid = false;
     } else {
       const passStrength =
         /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/;
       if (!passStrength.test(formData.password)) {
         newErrors.password =
-          "Password must include at least one uppercase letter, one lowercase letter, one digit and one special character";
+          "Include uppercase, lowercase, number, special character";
         isValid = false;
       }
     }
 
-    // Validate Confirm Password
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = "Please confirm the password";
+      newErrors.confirmPassword = "Confirm your password";
       isValid = false;
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match";
@@ -95,25 +102,52 @@ export default function Signup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsLoading(false);
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/vendor/register/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: formData.email,
+            email: formData.email,
+            password: formData.password,
+            restaurant_name: formData.restaurant_name,
+            location: formData.location,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        // Only redirect if component is mounted
+        if (mounted) {
+          router.push("/login");
+          toast.success("Registration successful! Please log in.");
+        }
+      } else {
+        // error message using toast
+        toast.error(data.error || "Registration failed.");
+      }
+    } catch (error) {
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formFields = [
     {
-      label: "Full Name",
-      name: "name",
+      label: "Restaurant Name",
+      name: "restaurant_name",
       type: "text",
-      placeholder: "Enter your name",
+      placeholder: "Your restaurant name",
       icon: (
-        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Store className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
       ),
     },
     {
@@ -123,6 +157,15 @@ export default function Signup() {
       placeholder: "Enter your email",
       icon: (
         <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+      ),
+    },
+    {
+      label: "Location",
+      name: "location",
+      type: "text",
+      placeholder: "Restaurant location",
+      icon: (
+        <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
       ),
     },
     {
@@ -160,9 +203,9 @@ export default function Signup() {
           </div>
 
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold mb-2">Create an account</h1>
+            <h1 className="text-2xl font-bold mb-2">Sign Up</h1>
             <p className="text-muted-foreground">
-              Sign up to get started with Smart QR Menu
+              Register to manage your digital menu
             </p>
           </div>
 
@@ -184,7 +227,11 @@ export default function Signup() {
                     placeholder={field.placeholder}
                     value={formData[field.name]}
                     onChange={handleChange}
-                    className={`pl-10 ${errors[field.name] ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                    className={`pl-10 ${
+                      errors[field.name]
+                        ? "border-red-500 focus-visible:ring-red-500"
+                        : ""
+                    }`}
                   />
                 </div>
                 {errors[field.name] && (
@@ -201,19 +248,17 @@ export default function Signup() {
               className="w-full mt-4"
               disabled={isLoading}
             >
-              {isLoading ? "Creating account..." : "Create account"}
+              {isLoading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">
-              Already have an account?{" "}
-            </span>
+            <span className="text-muted-foreground">Already registered? </span>
             <Link
               href="/login"
               className="text-orange-500 hover:text-orange-600 font-medium"
             >
-              Sign in
+              Login
             </Link>
           </div>
         </div>

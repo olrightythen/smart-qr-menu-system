@@ -3,6 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import Navbar from "@/components/navigation/Navbar";
 import Footer from "@/components/sections/Footer";
+import { Toaster } from "react-hot-toast";
 
 
 const inter = Inter({ subsets: ["latin"] });
@@ -20,6 +21,7 @@ export default function RootLayout({ children }) {
         <ThemeProvider>
           <div className="min-h-screen bg-background">
             <Navbar />
+            <Toaster/>
             <main>{children}</main>
             <Footer />
           </div>

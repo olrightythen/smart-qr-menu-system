@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { ArrowLeft, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { useRouter } from "next/navigation"; // Changed from next/router to next/navigation
+import toast from "react-hot-toast"; // Added missing import
 
 export default function Login() {
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -16,6 +20,11 @@ export default function Login() {
     email: "",
     password: "",
   });
+
+  // Ensure component is mounted before using router
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleChange = useCallback(
     (e) => {
@@ -57,16 +66,40 @@ export default function Login() {
 
       setIsLoading(true);
       try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        // Handle successful login here
+        const response = await fetch(
+          "http://127.0.0.1:8000/api/vendor/login/",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(formData),
+          }
+        );
+
+        const data = await response.json();
+        if (response.ok) {
+          if (mounted) {
+            router.push("/dashboard");
+          }
+        } else if (response.status === 401) {
+          setErrors((prev) => ({
+            ...prev,
+            password: "Invalid email or password",
+          }));
+        } else {
+          setErrors((prev) => ({
+            ...prev,
+            email: "An error occurred. Please try again.",
+          }));
+        }
       } catch (error) {
-        // Handle error here
+        toast.error("An error occurred. Please try again.");
       } finally {
         setIsLoading(false);
       }
     },
-    [validateForm]
+    [validateForm, router, mounted]
   );
 
   const FormField = ({ label, icon: Icon, type, name, placeholder }) => (
