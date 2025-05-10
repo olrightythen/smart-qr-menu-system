@@ -20,7 +20,7 @@ A smart and affordable QR menu and ordering system for small restaurants and str
 
 ```bash
 smart-qr-menu-system/
-├── backend/   
+├── backend/
     ├── myvenv/     # Python virtual environment
     ├── requirements.txt # Django backend
 ├── frontend/   # Next.js frontend
@@ -55,7 +55,28 @@ myvenv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-#### c. Apply Migrations
+#### c. Create database
+
+- Create a MySQL database named `smart_qr_menu_system` (or any name you prefer).
+- Update the database settings in `backend/settings.py`:
+
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'smart_qr_menu_system',  # Your database
+        'USER': 'your_username',         # Your MySQL username
+        'PASSWORD': 'your_password',     # Your MySQL password
+        'HOST': 'localhost',
+        'PORT': '3306',                 # Default MySQL port
+    }
+}
+```
+
+- Make sure to replace `your_username` and `your_password` with your actual MySQL credentials.
+- Ensure you have the MySQL server running.
+
+#### d. Apply Migrations
 
 ```bash
 cd backend
@@ -63,7 +84,7 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
-#### d. Run Django Server
+#### e. Run Django Server
 
 ```bash
 python manage.py runserver
@@ -112,10 +133,10 @@ Set up your test eSewa merchant credentials in the `.env` file.
 
 ## ⚙️ Technologies Used
 
-![Django](https://img.shields.io/badge/Django-4.2-green)
-![Next.js](https://img.shields.io/badge/Next.js-14.0.0-black)
-![MySQL](https://img.shields.io/badge/MySQL-8.0-blue)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.3-cyan)
+![Django](https://img.shields.io/badge/Django-5.0-green)
+![Next.js](https://img.shields.io/badge/Next.js-15.2.1-black)
+![MySQL](https://img.shields.io/badge/MySQL-15.1-blue)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4.1.4-cyan)
 ![eSewa](https://img.shields.io/badge/eSewa-Integrated-brightgreen)
 
 - **Frontend:** Next.js, TailwindCSS
@@ -136,7 +157,7 @@ Set up your test eSewa merchant credentials in the `.env` file.
 
 ## 🧑‍💻 Author
 
-Made with ❤️ by **Sulav and Suhit**  
+Made with ❤️ by **Sulav and Suhit**
 
 ---
 
