@@ -2,12 +2,14 @@
 
 import { useRef, useEffect } from "react";
 import { ScanLine, List, ShoppingCart } from "lucide-react";
+import Image from "next/image";
 
 const steps = [
   {
     number: 1,
     icon: ScanLine,
     title: "Scan",
+    image: "/scan.jpg",
     description:
       "Customers scan the QR code on your table with their smartphone camera.",
     color: "bg-orange-500",
@@ -16,6 +18,7 @@ const steps = [
     number: 2,
     icon: List,
     title: "Browse",
+    image: "/browse.jpg",
     description:
       "They browse your full menu with images, descriptions, and prices.",
     color: "bg-green-500",
@@ -24,6 +27,7 @@ const steps = [
     number: 3,
     icon: ShoppingCart,
     title: "Order",
+    image: "/order.jpg",
     description:
       "Customers place and pay for their order directly from their phone.",
     color: "bg-blue-500",
@@ -74,15 +78,12 @@ const StepCard = ({ step, index }) => {
 
         <div className="mt-auto">
           <div className="rounded-lg overflow-hidden border border-border aspect-video bg-muted">
-            <img
-              src={`https://images.pexels.com/photos/${
-                1850600 + index * 100
-              }/pexels-photo-${
-                1850600 + index * 100
-              }.jpeg?auto=compress&cs=tinysrgb&w=600`}
-              alt={`Step ${step.number}: ${step.title}`}
+            <Image
+              src={step.image}
+              alt={step.title}
+              width={600}
+              height={400}
               className="w-full h-full object-cover"
-              loading="lazy"
             />
           </div>
         </div>

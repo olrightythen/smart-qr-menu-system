@@ -11,6 +11,7 @@ import {
   Search,
   BookHeart,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const features = [
   {
@@ -90,7 +91,10 @@ const FeatureCard = ({ feature, index }) => {
   return (
     <div
       ref={cardRef}
-      className="bg-card rounded-xl p-6 shadow-sm border border-border transition-all duration-500 opacity-0 translate-y-4 group hover:shadow-md hover:border-orange-200 dark:hover:border-orange-900"
+      className={cn(
+        "bg-card rounded-xl p-6 shadow-sm border border-border transition-all duration-500 opacity-0 translate-y-4",
+        "group hover:shadow-md hover:border-orange-200 dark:hover:border-orange-900"
+      )}
       style={{ transitionDelay: `${index * 100}ms` }}
     >
       <div className="rounded-full w-12 h-12 bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center mb-4 text-orange-500 group-hover:scale-110 transition-transform duration-300">

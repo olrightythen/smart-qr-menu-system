@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import Footer from "@/components/sections/Footer";
+import Navbar from "@/components/navigation/Navbar";
 
 export default function Signup() {
   const router = useRouter();
@@ -189,80 +191,85 @@ export default function Signup() {
   ];
 
   return (
-    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4 mt-16">
-      <div className="max-w-md w-full">
-        <div className="bg-card rounded-xl shadow-lg border border-border p-8">
-          <div className="mb-8">
-            <Link
-              href="/"
-              className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to home
-            </Link>
-          </div>
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4 mt-16">
+        <div className="max-w-md w-full">
+          <div className="bg-card rounded-xl shadow-lg border border-border p-8">
+            <div className="mb-8">
+              <Link
+                href="/"
+                className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to home
+              </Link>
+            </div>
 
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold mb-2">Sign Up</h1>
-            <p className="text-muted-foreground">
-              Register to manage your digital menu
-            </p>
-          </div>
+            <div className="text-center mb-8">
+              <h1 className="text-2xl font-bold mb-2">Sign Up</h1>
+              <p className="text-muted-foreground">
+                Register to manage your digital menu
+              </p>
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {formFields.map((field) => (
-              <div key={field.name} className="space-y-2">
-                <label
-                  htmlFor={field.name}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  {field.label}
-                </label>
-                <div className="relative">
-                  {field.icon}
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    type={field.type}
-                    placeholder={field.placeholder}
-                    value={formData[field.name]}
-                    onChange={handleChange}
-                    className={`pl-10 ${
-                      errors[field.name]
-                        ? "border-red-500 focus-visible:ring-red-500"
-                        : ""
-                    }`}
-                  />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {formFields.map((field) => (
+                <div key={field.name} className="space-y-2">
+                  <label
+                    htmlFor={field.name}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    {field.label}
+                  </label>
+                  <div className="relative">
+                    {field.icon}
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type={field.type}
+                      placeholder={field.placeholder}
+                      value={formData[field.name]}
+                      onChange={handleChange}
+                      className={`pl-10 ${
+                        errors[field.name]
+                          ? "border-red-500 focus-visible:ring-red-500"
+                          : ""
+                      }`}
+                    />
+                  </div>
+                  {errors[field.name] && (
+                    <p className="text-xs font-medium text-red-500 mt-1">
+                      {errors[field.name]}
+                    </p>
+                  )}
                 </div>
-                {errors[field.name] && (
-                  <p className="text-xs font-medium text-red-500 mt-1">
-                    {errors[field.name]}
-                  </p>
-                )}
-              </div>
-            ))}
+              ))}
 
-            <Button
-              type="submit"
-              variant="orange"
-              className="w-full mt-4"
-              disabled={isLoading}
-            >
-              {isLoading ? "Creating account..." : "Create Account"}
-            </Button>
-          </form>
+              <Button
+                type="submit"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? "Creating account..." : "Create account"}
+              </Button>
+            </form>
 
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Already registered? </span>
-            <Link
-              href="/login"
-              className="text-orange-500 hover:text-orange-600 font-medium"
-            >
-              Login
-            </Link>
+            <div className="mt-6 text-center text-sm">
+              <span className="text-muted-foreground">
+                Already registered?{" "}
+              </span>
+              <Link
+                href="/login"
+                className="text-orange-500 hover:text-orange-600 font-medium"
+              >
+                Login
+              </Link>
+            </div>
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

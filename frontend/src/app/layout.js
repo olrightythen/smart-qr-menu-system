@@ -1,9 +1,8 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import Navbar from "@/components/navigation/Navbar";
-import Footer from "@/components/sections/Footer";
 import { Toaster } from "react-hot-toast";
+import { AuthProvider } from "@/context/AuthContext";
 
 
 const inter = Inter({ subsets: ["latin"] });
@@ -18,14 +17,12 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={inter.className}>
+        <AuthProvider>
         <ThemeProvider>
-          <div className="min-h-screen bg-background">
-            <Navbar />
             <Toaster/>
             <main>{children}</main>
-            <Footer />
-          </div>
         </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

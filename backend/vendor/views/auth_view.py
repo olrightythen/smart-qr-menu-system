@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from ..models import Vendor
+from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 
 class VendorRegisterView(APIView):
@@ -27,11 +28,26 @@ class VendorLoginView(APIView):
         try:
             user = get_user_model().objects.get(email=data["email"])
             if user.check_password(data["password"]):
-                return Response({"message": "Login successful"}, status=status.HTTP_200_OK)
+                token, created = Token.objects.get_or_create(user=user)
+                user_data = {
+                    "id": user.id,
+                    "email": user.email,
+                    "name": user.get_full_name() or user.username,
+                }
+                return Response(
+                    {"token": token.key, "user": user_data},
+                    status=status.HTTP_200_OK
+                )
             else:
-                return Response({"error": "Invalid password"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Invalid email or password"},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
         except get_user_model().DoesNotExist:
-            return Response({"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "User does not exist"},
+                status=status.HTTP_404_NOT_FOUND
+            )
         
 class VendorProfileView(APIView):
     def get(self, request):

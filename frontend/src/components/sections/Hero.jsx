@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { QrCode, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 export default function Hero() {
   const [isVisible, setIsVisible] = useState(false);
@@ -21,17 +23,17 @@ export default function Hero() {
 
       <div className="container mx-auto px-4 md:px-6 relative z-10">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
-          {/* Left Text */}
           <div
-            className={`flex-1 space-y-6 text-center lg:text-left transform transition-all duration-700 ${
+            className={cn(
+              "flex-1 space-y-6 text-center lg:text-left transform transition-all duration-700",
               isVisible
                 ? "translate-y-0 opacity-100"
                 : "translate-y-10 opacity-0"
-            }`}
+            )}
           >
             <div className="inline-flex items-center rounded-full px-3 py-1 text-sm bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300 mb-2">
               <span className="flex h-2 w-2 rounded-full bg-orange-500 mr-2"></span>
-              New Feature: SMS Discount Notifications
+              Upcoming Feature: SMS Discount Notifications
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight">
@@ -48,7 +50,7 @@ export default function Hero() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button
                 size="lg"
-                variant="orange"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 Get Started <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -65,7 +67,7 @@ export default function Hero() {
                 {[1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
-                    className="w-8 h-8 rounded-full text-black bg-gray-200 border-2 border-white dark:border-gray-800 flex items-center justify-center text-xs font-medium"
+                    className="w-8 h-8 text-black rounded-full bg-gray-200 border-2 border-background flex items-center justify-center text-xs font-medium"
                   >
                     {String.fromCharCode(64 + i)}
                   </div>
@@ -74,19 +76,21 @@ export default function Hero() {
             </div>
           </div>
 
-          {/* Right Image + Card */}
           <div
-            className={`flex-1 relative transform transition-all duration-700 delay-300 ${
+            className={cn(
+              "flex-1 relative transform transition-all duration-700 delay-300",
               isVisible
                 ? "translate-y-0 opacity-100"
                 : "translate-y-10 opacity-0"
-            }`}
+            )}
           >
             <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden p-2 border border-gray-100 dark:border-gray-700">
               <div className="aspect-[4/3] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
-                <img
-                  src="https://images.pexels.com/photos/6205791/pexels-photo-6205791.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+                <Image
+                  src="/burger.webp"
                   alt="Restaurant QR Menu Preview"
+                  width={1260}
+                  height={750}
                   className="object-cover w-full h-full"
                 />
               </div>
