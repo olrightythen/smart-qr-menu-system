@@ -1,9 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Store, Mail, Lock, MapPin } from "lucide-react";
+import {
+  ArrowLeft,
+  Store,
+  Mail,
+  Lock,
+  MapPin,
+  User,
+  Phone,
+  ClipboardList,
+  Clock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -16,16 +27,26 @@ export default function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     restaurant_name: "",
+    owner_name: "",
     email: "",
+    phone: "",
     location: "",
+    description: "",
+    opening_time: "10:00",
+    closing_time: "22:00",
     password: "",
     confirmPassword: "",
   });
 
   const [errors, setErrors] = useState({
     restaurant_name: "",
+    owner_name: "",
     email: "",
+    phone: "",
     location: "",
+    description: "",
+    opening_time: "",
+    closing_time: "",
     password: "",
     confirmPassword: "",
   });
@@ -41,28 +62,87 @@ export default function Signup() {
       ...prev,
       [name]: value,
     }));
+
+    // Clear error when field is being edited
+    if (errors[name]) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
+    }
   };
 
   const validateForm = () => {
     const newErrors = {
       restaurant_name: "",
+      owner_name: "",
       email: "",
+      phone: "",
       location: "",
+      description: "",
+      opening_time: "",
+      closing_time: "",
       password: "",
       confirmPassword: "",
     };
     let isValid = true;
 
+    // Restaurant name validation
     if (!formData.restaurant_name.trim()) {
       newErrors.restaurant_name = "Restaurant name is required";
       isValid = false;
     }
 
+    // Owner name validation
+    if (!formData.owner_name.trim()) {
+      newErrors.owner_name = "Owner name is required";
+      isValid = false;
+    }
+
+    // Location validation
     if (!formData.location.trim()) {
       newErrors.location = "Location is required";
       isValid = false;
     }
 
+    // Phone validation
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+      isValid = false;
+    } else {
+      const phoneRegex = /^(\+\d{1,3}[- ]?)?\d{10}$/;
+      if (!phoneRegex.test(formData.phone.replace(/\s+/g, ""))) {
+        newErrors.phone = "Enter a valid phone number (e.g. +977 9812345678)";
+        isValid = false;
+      }
+    }
+
+    // Description validation
+    if (!formData.description.trim()) {
+      newErrors.description = "Description is required";
+      isValid = false;
+    } else if (formData.description.length < 20) {
+      newErrors.description = "Description must be at least 20 characters";
+      isValid = false;
+    }
+
+    // Business hours validation
+    if (!formData.opening_time) {
+      newErrors.opening_time = "Opening time is required";
+      isValid = false;
+    }
+
+    if (!formData.closing_time) {
+      newErrors.closing_time = "Closing time is required";
+      isValid = false;
+    }
+
+    if (formData.opening_time >= formData.closing_time) {
+      newErrors.closing_time = "Closing time must be after opening time";
+      isValid = false;
+    }
+
+    // Email validation
     if (!formData.email) {
       newErrors.email = "Email is required";
       isValid = false;
@@ -74,6 +154,7 @@ export default function Signup() {
       }
     }
 
+    // Password validation
     if (!formData.password) {
       newErrors.password = "Password is required";
       isValid = false;
@@ -90,6 +171,7 @@ export default function Signup() {
       }
     }
 
+    // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = "Confirm your password";
       isValid = false;
@@ -119,7 +201,12 @@ export default function Signup() {
             email: formData.email,
             password: formData.password,
             restaurant_name: formData.restaurant_name,
+            owner_name: formData.owner_name,
+            phone: formData.phone,
             location: formData.location,
+            description: formData.description,
+            opening_time: formData.opening_time,
+            closing_time: formData.closing_time,
           }),
         }
       );
@@ -142,7 +229,8 @@ export default function Signup() {
     }
   };
 
-  const formFields = [
+  // Basic form fields
+  const basicFormFields = [
     {
       label: "Restaurant Name",
       name: "restaurant_name",
@@ -150,6 +238,15 @@ export default function Signup() {
       placeholder: "Your restaurant name",
       icon: (
         <Store className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+      ),
+    },
+    {
+      label: "Owner Name",
+      name: "owner_name",
+      type: "text",
+      placeholder: "Full name of owner",
+      icon: (
+        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
       ),
     },
     {
@@ -162,6 +259,15 @@ export default function Signup() {
       ),
     },
     {
+      label: "Phone Number",
+      name: "phone",
+      type: "tel",
+      placeholder: "+977 9812345678",
+      icon: (
+        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+      ),
+    },
+    {
       label: "Location",
       name: "location",
       type: "text",
@@ -170,6 +276,10 @@ export default function Signup() {
         <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
       ),
     },
+  ];
+
+  // Security form fields
+  const securityFormFields = [
     {
       label: "Password",
       name: "password",
@@ -194,7 +304,7 @@ export default function Signup() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4 mt-16">
-        <div className="max-w-md w-full">
+        <div className="max-w-2xl w-full">
           <div className="bg-card rounded-xl shadow-lg border border-border p-8">
             <div className="mb-8">
               <Link
@@ -213,38 +323,156 @@ export default function Signup() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {formFields.map((field) => (
-                <div key={field.name} className="space-y-2">
-                  <label
-                    htmlFor={field.name}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {field.label}
-                  </label>
-                  <div className="relative">
-                    {field.icon}
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      type={field.type}
-                      placeholder={field.placeholder}
-                      value={formData[field.name]}
-                      onChange={handleChange}
-                      className={`pl-10 ${
-                        errors[field.name]
-                          ? "border-red-500 focus-visible:ring-red-500"
-                          : ""
-                      }`}
-                    />
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <h2 className="text-lg font-medium mb-4">
+                  Restaurant Information
+                </h2>
+                <div className="space-y-4">
+                  {basicFormFields.map((field) => (
+                    <div key={field.name} className="space-y-2">
+                      <label
+                        htmlFor={field.name}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {field.label}
+                      </label>
+                      <div className="relative">
+                        {field.icon}
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          type={field.type}
+                          placeholder={field.placeholder}
+                          value={formData[field.name]}
+                          onChange={handleChange}
+                          className={`pl-10 ${
+                            errors[field.name]
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }`}
+                        />
+                      </div>
+                      {errors[field.name] && (
+                        <p className="text-xs font-medium text-red-500 mt-1">
+                          {errors[field.name]}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Description textarea */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Restaurant Description
+                    </label>
+                    <div className="relative">
+                      <ClipboardList className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Textarea
+                        name="description"
+                        placeholder="Brief description of your restaurant..."
+                        value={formData.description}
+                        onChange={handleChange}
+                        className={`pl-10 min-h-[100px] ${
+                          errors.description
+                            ? "border-red-500 focus-visible:ring-red-500"
+                            : ""
+                        }`}
+                      />
+                    </div>
+                    {errors.description && (
+                      <p className="text-xs font-medium text-red-500 mt-1">
+                        {errors.description}
+                      </p>
+                    )}
                   </div>
-                  {errors[field.name] && (
-                    <p className="text-xs font-medium text-red-500 mt-1">
-                      {errors[field.name]}
-                    </p>
-                  )}
+
+                  {/* Business Hours */}
+                  <div>
+                    <label className="text-sm font-medium block mb-2">
+                      Business Hours
+                    </label>
+                    <div className="flex items-center space-x-3">
+                      <div className="relative flex-1">
+                        <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="time"
+                          name="opening_time"
+                          value={formData.opening_time}
+                          onChange={handleChange}
+                          className={`pl-10 ${
+                            errors.opening_time
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }`}
+                        />
+                        {errors.opening_time && (
+                          <p className="text-xs font-medium text-red-500 mt-1">
+                            {errors.opening_time}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground">to</span>
+                      <div className="relative flex-1">
+                        <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="time"
+                          name="closing_time"
+                          value={formData.closing_time}
+                          onChange={handleChange}
+                          className={`pl-10 ${
+                            errors.closing_time
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }`}
+                        />
+                        {errors.closing_time && (
+                          <p className="text-xs font-medium text-red-500 mt-1">
+                            {errors.closing_time}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              <div>
+                <h2 className="text-lg font-medium mb-4">Security</h2>
+                <div className="space-y-4">
+                  {securityFormFields.map((field) => (
+                    <div key={field.name} className="space-y-2">
+                      <label
+                        htmlFor={field.name}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {field.label}
+                      </label>
+                      <div className="relative">
+                        {field.icon}
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          type={field.type}
+                          placeholder={field.placeholder}
+                          value={formData[field.name]}
+                          onChange={handleChange}
+                          className={`pl-10 ${
+                            errors[field.name]
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }`}
+                        />
+                      </div>
+                      {errors[field.name] && (
+                        <p className="text-xs font-medium text-red-500 mt-1">
+                          {errors[field.name]}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               <Button
                 type="submit"

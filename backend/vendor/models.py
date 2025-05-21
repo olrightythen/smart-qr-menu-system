@@ -20,7 +20,12 @@ class VendorManager(BaseUserManager):
 
 class Vendor(AbstractUser):
     restaurant_name = models.CharField(max_length=100)
+    owner_name = models.CharField(max_length=100, blank=True, null=True)  # New field
+    phone = models.CharField(max_length=20, blank=True, null=True)  # New field
     location = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)  # New field
+    opening_time = models.TimeField(null=True, blank=True)  # New field
+    closing_time = models.TimeField(null=True, blank=True)  # New field
 
     objects = VendorManager()
 

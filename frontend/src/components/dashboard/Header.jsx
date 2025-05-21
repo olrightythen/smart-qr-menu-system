@@ -12,14 +12,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
 import { useTheme } from '../ThemeProvider';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardHeader({ onMenuClick }) {
   const { theme, toggleTheme } = useTheme();
+  const { logout, user } = useAuth();
+  // Assuming user object contains restaurant_name
+  const [restaurant_name] = user ? [user.restaurant_name] : ["No Name"];
+  const router = useRouter();
   const [notifications] = useState([
     { id: 1, text: "New order received", time: "5 minutes ago" },
     { id: 2, text: "Customer review posted", time: "1 hour ago" },
     { id: 3, text: "Daily summary available", time: "3 hours ago" },
   ]);
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
+  
 
   return (
     <header className="h-16 bg-card border-b border-border sticky top-0 z-30">
@@ -32,7 +44,7 @@ export default function DashboardHeader({ onMenuClick }) {
         </button>
 
         <div className="flex-1 px-4 text-lg font-medium">
-          Spice Garden Restaurant
+          {restaurant_name}
         </div>
 
         <div className="flex items-center space-x-4">
@@ -79,7 +91,9 @@ export default function DashboardHeader({ onMenuClick }) {
               <DropdownMenuSeparator />
               <DropdownMenuItem>Profile</DropdownMenuItem>
               <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem className="text-red-500">Logout</DropdownMenuItem>
+              <DropdownMenuItem className="text-red-500" onClick={handleLogout}>
+                Logout
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

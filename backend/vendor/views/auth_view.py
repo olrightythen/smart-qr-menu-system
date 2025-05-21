@@ -15,7 +15,12 @@ class VendorRegisterView(APIView):
                 email=data["email"],
                 password=data["password"],
                 restaurant_name=data["restaurant_name"],
+                owner_name=data["owner_name"],
+                phone=data["phone"],
                 location=data["location"],
+                description=data["description"],
+                opening_time=data["opening_time"],
+                closing_time=data["closing_time"],
             )
             return Response({"message": "Vendor registered successfully"}, status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -32,7 +37,8 @@ class VendorLoginView(APIView):
                 user_data = {
                     "id": user.id,
                     "email": user.email,
-                    "name": user.get_full_name() or user.username,
+                    "name": user.owner_name,
+                    "restaurant_name": user.restaurant_name,
                 }
                 return Response(
                     {"token": token.key, "user": user_data},

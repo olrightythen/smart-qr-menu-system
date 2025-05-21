@@ -43,7 +43,6 @@ export default function Login() {
   const router = useRouter();
   const { login: contextLogin } = useAuth(); // 👈 Grab login from context
 
-  const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -53,10 +52,6 @@ export default function Login() {
     email: "",
     password: "",
   });
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleChange = useCallback(
     (e) => {
@@ -113,10 +108,8 @@ export default function Login() {
           contextLogin(token, user);
 
           toast.success("Login successful");
+          router.push("/dashboard");
 
-          if (mounted) {
-            router.push("/dashboard");
-          }
         } else if (response.status === 401) {
           setErrors((prev) => ({
             ...prev,
@@ -134,7 +127,7 @@ export default function Login() {
         setIsLoading(false);
       }
     },
-    [validateForm, router, mounted, formData, contextLogin]
+    [validateForm, router, formData, contextLogin]
   );
 
   return (
