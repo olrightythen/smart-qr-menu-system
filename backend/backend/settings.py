@@ -81,11 +81,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'smart_qr_menu',
-        'USER': 'root',  # Change if needed
-        'PASSWORD': '',
+        'NAME': 'smart_qr_menu_system',  # Your database
+        'USER': 'root',         # Your MySQL username
+        'PASSWORD': '',     # Your MySQL password
         'HOST': 'localhost',
-        'PORT': '3306',
+        'PORT': '3306',                 # Default MySQL port
     }
 }
 
