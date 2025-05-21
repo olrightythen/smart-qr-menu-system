@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Plus, Upload, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,10 +10,11 @@ import DashboardHeader from '@/components/dashboard/Header';
 
 export default function CreateMenu() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [menuItems, setMenuItems] = useState([{ name: '', price: '', description: '', category: '' }]);
+  const [menuItems, setMenuItems] = useState([{ name: '', price: '', description: '', category: '', imageUrl: '' }]);
+  const [loading, setLoading] = useState(false);
 
   const addMenuItem = () => {
-    setMenuItems([...menuItems, { name: '', price: '', description: '', category: '' }]);
+    setMenuItems([...menuItems, { name: '', price: '', description: '', category: '', imageUrl: '' }]);
   };
 
   const removeMenuItem = (index) => {
@@ -25,6 +26,34 @@ export default function CreateMenu() {
     const newItems = [...menuItems];
     newItems[index][field] = value;
     setMenuItems(newItems);
+  };
+
+  const handlePublishMenu = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/vendor/dashboard/create-menu/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: menuItems,  // Send the menu items data
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(data);  // Handle response (optional)
+        setLoading(false);
+        alert("Menu published successfully");
+      } else {
+        throw new Error('Failed to publish menu');
+      }
+    } catch (error) {
+      setLoading(false);
+      console.error(error);
+      alert("An error occurred while publishing the menu.");
+    }
   };
 
   return (
@@ -96,16 +125,16 @@ export default function CreateMenu() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium block mb-2">Item Image</label>
-                      <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
-                        <Button variant="outline" className="w-full">
-                          <Upload className="h-4 w-4 mr-2" />
-                          Upload Image
-                        </Button>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          PNG, JPG up to 5MB
-                        </p>
-                      </div>
+                      <label className="text-sm font-medium block mb-2">Image URL</label>
+                      <Input
+                        type="text"
+                        value={item.imageUrl}
+                        onChange={(e) => handleItemChange(index, 'imageUrl', e.target.value)}
+                        placeholder="e.g., https://example.com/image.jpg"
+                      />
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Enter the image URL (PNG, JPG).
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -114,8 +143,12 @@ export default function CreateMenu() {
 
             <div className="flex justify-end space-x-4">
               <Button variant="outline">Save as Draft</Button>
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white">
-                Publish Menu
+              <Button
+                onClick={handlePublishMenu}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                disabled={loading}
+              >
+                {loading ? 'Publishing...' : 'Publish Menu'}
               </Button>
             </div>
           </div>
