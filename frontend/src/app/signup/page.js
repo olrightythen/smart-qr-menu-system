@@ -166,7 +166,7 @@ export default function Signup() {
         /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/;
       if (!passStrength.test(formData.password)) {
         newErrors.password =
-          "Include uppercase, lowercase, number, special character";
+          "Include uppercase, lowercase, number & special character";
         isValid = false;
       }
     }

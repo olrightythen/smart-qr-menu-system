@@ -106,10 +106,48 @@ export default function MenuPage() {
     0
   );
 
-  const handleCheckout = () => {
-    // Implement eSewa integration here
-    console.log("Proceeding to checkout", cart);
+  const handleCheckout = async () => {
+    const response = await fetch("http://localhost:8000/api/initiate-payment/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+         product_id: cart[0].id 
+        }), // assuming single product for now
+    });
+
+    const data = await response.json();
+
+    // Create and submit the form
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
+
+    const fields = {
+      amount: data.amount,
+      tax_amount: 0,
+      total_amount: data.amount,
+      transaction_uuid: data.invoice_no,
+      product_code: "EPAYTEST",
+      product_service_charge: 0,
+      product_delivery_charge: 0,
+      success_url: data.success_url,
+      failure_url: data.failure_url,
+      signed_field_names: "total_amount,transaction_uuid,product_code",
+      signature: data.signature,
+    };
+
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
   };
+  
 
   return (
     <div className="min-h-screen bg-background">

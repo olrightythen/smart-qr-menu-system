@@ -76,6 +76,15 @@ export default function Login() {
 
     if (!password) {
       newErrors.password = "Password is required";
+    } else if (formData.password.length < 8) {
+      newErrors.password = "Minimum 8 characters required";
+    } else {
+      const passStrength =
+        /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/;
+      if (!passStrength.test(formData.password)) {
+        newErrors.password =
+          "Include uppercase, lowercase, number & special character";
+      }
     }
 
     setErrors(newErrors);
@@ -115,14 +124,20 @@ export default function Login() {
             ...prev,
             password: "Invalid email or password",
           }));
-        } else {
+        } else if (response.status === 404) {
+          setErrors((prev) => ({
+            ...prev,
+            email: "User does not exist",
+          }));
+        }
+        else {
           setErrors((prev) => ({
             ...prev,
             email: "An error occurred. Please try again.",
           }));
         }
       } catch (error) {
-        toast.error("An error occurred. Please try again.");
+        toast.error("Error connecting to the server.");
       } finally {
         setIsLoading(false);
       }

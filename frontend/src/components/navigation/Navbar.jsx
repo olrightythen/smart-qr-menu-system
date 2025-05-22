@@ -80,18 +80,8 @@ export default function Navbar() {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden pt-4 pb-2">
+          <div className="md:hidden pt-4 pb-2 bg-background/95 backdrop-blur-sm shadow-sm rounded-lg">
             <div className="flex flex-col space-y-4">
-              {navLinks.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  className="text-sm font-medium px-2 py-1 hover:text-orange-500 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {link.name}
-                </a>
-              ))}
               <Link href="/login" onClick={() => setIsMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start">
                   Sign in

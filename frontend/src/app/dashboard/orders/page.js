@@ -15,7 +15,7 @@ const orders = [
       { name: "Butter Chicken", quantity: 1 },
       { name: "Naan", quantity: 2 }
     ],
-    total: "₹450",
+    total: "450",
     status: "completed",
     time: "10 mins ago",
     payment: "eSewa"
@@ -27,7 +27,7 @@ const orders = [
       { name: "Masala Dosa", quantity: 1 },
       { name: "Coffee", quantity: 1 }
     ],
-    total: "₹180",
+    total: "180",
     status: "preparing",
     time: "15 mins ago",
     payment: "Cash"
@@ -39,7 +39,7 @@ const orders = [
       { name: "Paneer Tikka", quantity: 1 },
       { name: "Roti", quantity: 4 }
     ],
-    total: "₹350",
+    total: "350",
     status: "pending",
     time: "20 mins ago",
     payment: "eSewa"
@@ -112,7 +112,7 @@ export default function Orders() {
                           ))}
                         </div>
                       </td>
-                      <td className="p-4">{order.total}</td>
+                      <td className="p-4">Rs. {order.total}</td>
                       <td className="p-4">{order.payment}</td>
                       <td className="p-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[order.status]}`}>

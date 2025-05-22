@@ -15,7 +15,7 @@ const orders = [
     id: "ORD001",
     customer: "Rahul Sharma",
     items: "Butter Chicken, Naan",
-    amount: "₹450",
+    amount: "450",
     status: "completed",
     time: "10 mins ago"
   },
@@ -23,7 +23,7 @@ const orders = [
     id: "ORD002",
     customer: "Priya Patel",
     items: "Masala Dosa, Coffee",
-    amount: "₹180",
+    amount: "180",
     status: "preparing",
     time: "15 mins ago"
   },
@@ -31,7 +31,7 @@ const orders = [
     id: "ORD003",
     customer: "Amit Kumar",
     items: "Paneer Tikka, Roti",
-    amount: "₹350",
+    amount: "350",
     status: "pending",
     time: "20 mins ago"
   },
@@ -39,7 +39,7 @@ const orders = [
     id: "ORD004",
     customer: "Neha Singh",
     items: "Biryani, Raita",
-    amount: "₹280",
+    amount: "280",
     status: "completed",
     time: "25 mins ago"
   },
@@ -47,7 +47,7 @@ const orders = [
     id: "ORD005",
     customer: "Vikram Reddy",
     items: "Chole Bhature",
-    amount: "₹160",
+    amount: "160",
     status: "preparing",
     time: "30 mins ago"
   }
@@ -84,7 +84,7 @@ export default function RecentOrders() {
                 <TableCell className="font-medium">{order.id}</TableCell>
                 <TableCell>{order.customer}</TableCell>
                 <TableCell>{order.items}</TableCell>
-                <TableCell>{order.amount}</TableCell>
+                <TableCell>Rs. {order.amount}</TableCell>
                 <TableCell>
                   <Badge variant="secondary" className={statusStyles[order.status]}>
                     {order.status}

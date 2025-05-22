@@ -14,11 +14,11 @@ import { Button } from '@/components/ui/button';
 import { useTheme } from '../ThemeProvider';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function DashboardHeader({ onMenuClick }) {
   const { theme, toggleTheme } = useTheme();
   const { logout, user } = useAuth();
-  // Assuming user object contains restaurant_name
   const [restaurant_name] = user ? [user.restaurant_name] : ["No Name"];
   const router = useRouter();
   const [notifications] = useState([
@@ -89,8 +89,14 @@ export default function DashboardHeader({ onMenuClick }) {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem>
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/dashboard/settings">
+                Settings
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem className="text-red-500" onClick={handleLogout}>
                 Logout
               </DropdownMenuItem>

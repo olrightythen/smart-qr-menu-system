@@ -2,31 +2,56 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from ..models import Vendor
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 
 class VendorRegisterView(APIView):
     def post(self, request):
         data = request.data
+        
+        # Check if email already exists
         try:
+            # First validate that all required fields are present
+            required_fields = ["email", "password", "restaurant_name", "location"]
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    return Response(
+                        {"error": f"{field} is required"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Check for existing email
+            if get_user_model().objects.filter(email=data["email"]).exists():
+                return Response(
+                    {"error": "An account with this email already exists"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create the new user
             user = get_user_model().objects.create_user(
                 username=data["username"],
                 email=data["email"],
                 password=data["password"],
                 restaurant_name=data["restaurant_name"],
-                owner_name=data["owner_name"],
-                phone=data["phone"],
+                owner_name=data.get("owner_name", ""),  # Optional field
+                phone=data.get("phone", ""),  # Optional field
                 location=data["location"],
-                description=data["description"],
-                opening_time=data["opening_time"],
-                closing_time=data["closing_time"],
+                description=data.get("description", ""),  # Optional field
+                opening_time=data.get("opening_time", None),  # Optional field
+                closing_time=data.get("closing_time", None),  # Optional field
             )
-            return Response({"message": "Vendor registered successfully"}, status=status.HTTP_201_CREATED)
+            
+            return Response(
+                {"message": "Vendor registered successfully"}, 
+                status=status.HTTP_201_CREATED
+            )
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
-        # login using email and password
+
 class VendorLoginView(APIView):
     def post(self, request):
         data = request.data
@@ -54,17 +79,4 @@ class VendorLoginView(APIView):
                 {"error": "User does not exist"},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-class VendorProfileView(APIView):
-    def get(self, request):
-        user = request.user
-        if user.is_authenticated:
-            profile_data = {
-                "username": user.username,
-                "email": user.email,
-                "restaurant_name": user.restaurant_name,
-                "location": user.location,
-            }
-            return Response(profile_data, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+

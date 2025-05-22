@@ -9,16 +9,18 @@ export default function ProtectedRoute({ children }) {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    if (!isLoading && !isLoggedIn) {
-      router.replace("/login");
-    }
-
+    // Only redirect when loading has finished and the user is not logged in
     if (!isLoading) {
+      if (!isLoggedIn) {
+        router.replace("/login");
+      }
+      // Mark checking as complete regardless of login state
       setIsChecking(false);
     }
   }, [isLoggedIn, isLoading, router]);
 
-  if (isChecking || isLoading) {
+  // Show loading state while checking
+  if (isLoading || isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -29,7 +31,9 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
+  // If not logged in, return nothing (redirect will happen in useEffect)
   if (!isLoggedIn) return null;
 
+  // If logged in, render the children
   return children;
 }
