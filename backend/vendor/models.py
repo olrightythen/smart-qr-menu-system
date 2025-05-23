@@ -2,6 +2,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.timezone import now
 
 class VendorManager(BaseUserManager):
     def create_user(self, username, email, password=None, **extra_fields):
@@ -38,6 +39,7 @@ class Vendor(AbstractUser):
     description = models.TextField(blank=True, null=True)  # New field
     opening_time = models.TimeField(null=True, blank=True)  # New field
     closing_time = models.TimeField(null=True, blank=True)  # New field
+    logo = models.ImageField(upload_to='vendor_logos/', blank=True, null=True)  # New field
 
     objects = VendorManager()
 
@@ -63,9 +65,14 @@ class Order(models.Model):
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     )
-    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='vendor_orders')
-    created_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='orders')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    table_no = models.CharField(max_length=20, null=True, blank=True)
+    invoice_no = models.CharField(max_length=100, unique=True, default="INV-000000")
+    transaction_id = models.CharField(max_length=100, null=True, blank=True)
+    created_at = models.DateTimeField(default=now)
+    updated_at = models.DateTimeField(auto_now=True)
     payment_status = models.CharField(max_length=20, choices=[
         ('pending', 'Pending'),
         ('paid', 'Paid'),
@@ -76,11 +83,21 @@ class Order(models.Model):
         ('cash', 'Cash'),
     ], default='cash')
 
+    def __str__(self):
+        return f"Order #{self.id} - {self.vendor.restaurant_name}"
+        
+    class Meta:
+        ordering = ['-created_at']
+
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    menu_item = models.ForeignKey(MenuItem, on_delete=models.CASCADE)
+    menu_item = models.ForeignKey('MenuItem', on_delete=models.SET_NULL, null=True, related_name='order_items')
     quantity = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=8, decimal_places=2)  # item price at time of order
+
+    def __str__(self):
+        menu_item_name = self.menu_item.name if self.menu_item else "Unknown Item"
+        return f"{self.quantity}x {menu_item_name} in Order #{self.order.id}"
 
 
 

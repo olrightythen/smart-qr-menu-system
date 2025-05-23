@@ -409,3 +409,63 @@ class ToggleMenuItemAvailabilityView(APIView):
                 'error': 'Failed to update menu item',
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class PublicMenuView(APIView):
+    """API endpoint to fetch menu items for public access"""
+    
+    def get(self, request, vendor_id):
+        """Get all menu items for a vendor, grouped by category"""
+        try:
+            vendor = get_object_or_404(Vendor, id=vendor_id)
+            
+            # Get basic vendor info
+            vendor_info = {
+                'restaurant_name': vendor.restaurant_name,
+                'location': vendor.location,
+                'description': vendor.description,
+                'opening_time': vendor.opening_time.strftime('%H:%M') if vendor.opening_time else None,
+                'closing_time': vendor.closing_time.strftime('%H:%M') if vendor.closing_time else None,
+            }
+            
+            # Get all menu items for this vendor
+            menu_items = MenuItem.objects.filter(vendor=vendor).order_by('category', 'name')
+            
+            # Group by category
+            categories = {}
+            for item in menu_items:
+                category = item.category
+                if category not in categories:
+                    categories[category] = []
+                
+                # Add item to its category
+                categories[category].append({
+                    'id': item.id,
+                    'name': item.name,
+                    'price': str(item.price),
+                    'description': item.description or '',
+                    'category': item.category,
+                    'image_url': request.build_absolute_uri(item.image.url) if item.image and hasattr(item.image, 'url') else None,
+                    'is_available': item.is_available,
+                    'is_veg': getattr(item, 'is_veg', False)  # Default to False if field doesn't exist
+                })
+            
+            # Format for response
+            formatted_categories = [
+                {
+                    'name': category_name,
+                    'items': items
+                } for category_name, items in categories.items()
+            ]
+            
+            return Response({
+                'vendor_info': vendor_info,
+                'categories': formatted_categories,
+                'total_items': menu_items.count()
+            })
+            
+        except Exception as e:
+            logger.error(f"Error fetching public menu: {e}")
+            return Response({
+                'error': 'Failed to fetch menu',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

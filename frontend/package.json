@@ -8,11 +8,13 @@
     "start": "next start",
     "lint": "next lint"
   },
+  "proxy": "http://localhost:8000",
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.492.0",
     "next": "15.2.1",
+    "qrcode.react": "^4.2.0",
     "radix-ui": "^1.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
