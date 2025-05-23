@@ -3,6 +3,8 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.timezone import now
+from django.conf import settings
+import uuid
 
 class VendorManager(BaseUserManager):
     def create_user(self, username, email, password=None, **extra_fields):
@@ -48,15 +50,22 @@ class Vendor(AbstractUser):
     
 
 class MenuItem(models.Model):
-    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
+    vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='menu_items')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=8, decimal_places=2)
-    image = models.ImageField(upload_to='menu_items/', blank=True, null=True)
     category = models.CharField(max_length=50)
+    image = models.ImageField(upload_to='menu_items/', blank=True, null=True)
     is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Add this field if you want to track updates
+    updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        ordering = ['category', 'name']
+        
+    def __str__(self):
+        return self.name
 
 class Order(models.Model):
     STATUS_CHOICES = (
@@ -98,6 +107,58 @@ class OrderItem(models.Model):
     def __str__(self):
         menu_item_name = self.menu_item.name if self.menu_item else "Unknown Item"
         return f"{self.quantity}x {menu_item_name} in Order #{self.order.id}"
+
+class Table(models.Model):
+    """
+    Model representing a restaurant table with QR code
+    """
+    vendor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='tables',
+        help_text="The vendor/restaurant owner this table belongs to"
+    )
+    name = models.CharField(
+        max_length=100,
+        help_text="Name or number of the table (e.g., 'Table 1', 'Patio 3')"
+    )
+    qr_code = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        help_text="Unique identifier for the QR code"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this table is active and its QR code can be used"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Table"
+        verbose_name_plural = "Tables"
+        unique_together = [['vendor', 'name']]  # Prevent duplicate table names for the same vendor
+    
+    def __str__(self):
+        return f"{self.vendor.restaurant_name or self.vendor.email} - {self.name}"
+    
+    def regenerate_qr_code(self):
+        """Generate a new unique QR code identifier for this table"""
+        self.qr_code = uuid.uuid4()
+        self.save(update_fields=['qr_code', 'updated_at'])
+        return self.qr_code
+    
+    @property
+    def qr_string(self):
+        """Return the QR code as a string"""
+        return str(self.qr_code)
+    
+    @property
+    def vendor_name(self):
+        """Return the vendor's restaurant name or email if no restaurant name is set"""
+        return self.vendor.restaurant_name or self.vendor.email
 
 
 

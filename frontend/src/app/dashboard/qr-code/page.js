@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 
 export default function GenerateQR() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -54,6 +54,9 @@ export default function GenerateQR() {
     typeof window !== "undefined"
       ? `${window.location.protocol}//${window.location.host}`
       : "";
+
+  // Add a ref for the input element
+  const inputRef = useRef(null);
 
   // Fetch tables from backend
   useEffect(() => {
@@ -349,6 +352,8 @@ export default function GenerateQR() {
                   </label>
                   <div className="flex space-x-2">
                     <Input
+                      id="new-table-input"
+                      ref={inputRef}
                       value={newTableName}
                       onChange={(e) => setNewTableName(e.target.value)}
                       placeholder="e.g., Table 4"
@@ -436,9 +441,11 @@ export default function GenerateQR() {
                 </p>
                 <Button
                   className="bg-orange-500 hover:bg-orange-600 text-white"
-                  onClick={() =>
-                    document.getElementById("new-table-input").focus()
-                  }
+                  onClick={() => {
+                    if (inputRef.current) {
+                      inputRef.current.focus();
+                    }
+                  }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Your First Table
@@ -483,7 +490,7 @@ export default function GenerateQR() {
                   </div>
 
                   <div className="aspect-square bg-white rounded-lg flex items-center justify-center p-4 mb-4">
-                    <QRCode
+                    <QRCodeCanvas
                       id={`qr-code-${table.id}`}
                       value={`${hostUrl}/menu/${user.id}/${table.id}`}
                       size={180}

@@ -4,6 +4,7 @@ from .views.menu_view import CreateMenuView, MenuItemListView, MenuItemDetailVie
 from .views.menu_view import PublicMenuView
 from .views.payment_view import EsewaPaymentVerifyView, EsewaInitiatePaymentView
 from .views.order_view import OrderListView, OrderStatusUpdateView, OrderDetailsView
+from .views.table_view import TableListView, TableCreateView, TableDeleteView, TableRegenerateQRView
 
 urlpatterns = [
     # Vendor Authentication URLs
@@ -26,6 +27,12 @@ urlpatterns = [
     path('orders/<int:order_id>/status/', OrderStatusUpdateView.as_view(), name='order_status_update'),
     path('order/<int:order_id>/', OrderDetailsView.as_view(), name='order_details'),
     path('order/', OrderDetailsView.as_view(), name='order_details_by_invoice'),
+
+    # Table endpoints
+    path('vendor/<int:vendor_id>/tables/', TableListView.as_view(), name='table-list'),
+    path('vendor/<int:vendor_id>/tables/add/', TableCreateView.as_view(), name='table-create'),
+    path('vendor/<int:vendor_id>/tables/<int:table_id>/delete/', TableDeleteView.as_view(), name='table-delete'),
+    path('vendor/<int:vendor_id>/tables/<int:table_id>/regenerate-qr/', TableRegenerateQRView.as_view(), name='table-regenerate-qr'),
 
     # Payment URLs
     path('initiate-payment/', EsewaInitiatePaymentView.as_view(), name='initiate_payment'),
