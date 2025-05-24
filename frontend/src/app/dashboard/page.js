@@ -1,27 +1,31 @@
 "use client";
 
-import { useState } from 'react';
-import DashboardSidebar from '@/components/dashboard/Sidebar';
-import QuickStats from '@/components/dashboard/QuickStats';
-import RecentOrders from '@/components/dashboard/RecentOrders';
-import PopularItems from '@/components/dashboard/PopularItems';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import DashboardHeader from '@/components/dashboard/Header';
+import { useState } from "react";
+import DashboardSidebar from "@/components/dashboard/Sidebar";
+import DashboardHeader from "@/components/dashboard/Header";
+import QuickStats from "@/components/dashboard/QuickStats";
+import RecentOrders from "@/components/dashboard/RecentOrders";
+import PopularItems from "@/components/dashboard/PopularItems";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      <DashboardSidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
-      
-      <div className={`${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'} transition-all duration-300`}>
+      <DashboardSidebar
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+      />
+
+      <div
+        className={`${
+          isSidebarOpen ? "lg:ml-64" : "lg:ml-20"
+        } transition-all duration-300`}
+      >
         <DashboardHeader onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />
+
         <main className="p-4 md:p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
@@ -32,7 +36,7 @@ export default function Dashboard() {
           </div>
 
           <QuickStats />
-          
+
           <div className="grid lg:grid-cols-5 gap-6">
             <div className="lg:col-span-3">
               <RecentOrders />

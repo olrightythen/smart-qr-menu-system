@@ -5,6 +5,8 @@ from .views.menu_view import PublicMenuView
 from .views.payment_view import EsewaPaymentVerifyView, EsewaInitiatePaymentView
 from .views.order_view import OrderListView, OrderStatusUpdateView, OrderDetailsView
 from .views.table_view import TableListView, TableCreateView, TableDeleteView, TableRegenerateQRView
+# Import other views
+from .views.dashboard_view import DashboardStatsView
 
 urlpatterns = [
     # Vendor Authentication URLs
@@ -36,5 +38,8 @@ urlpatterns = [
 
     # Payment URLs
     path('initiate-payment/', EsewaInitiatePaymentView.as_view(), name='initiate_payment'),
-    path('verify-payment/', EsewaPaymentVerifyView.as_view(), name='verify_payment')
+    path('verify-payment/', EsewaPaymentVerifyView.as_view(), name='verify_payment'),
+
+    # Add the dashboard stats endpoint
+    path('vendor/<int:vendor_id>/dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
 ]

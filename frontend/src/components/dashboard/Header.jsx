@@ -20,12 +20,50 @@ export default function DashboardHeader({ onMenuClick }) {
   const { theme, toggleTheme } = useTheme();
   const { logout, user } = useAuth();
   const [restaurant_name] = user ? [user.restaurant_name] : ["No Name"];
+  const [logoPreview, setLogoPreview] = useState(user?.logo || null);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const [notifications] = useState([
     { id: 1, text: "New order received", time: "5 minutes ago" },
     { id: 2, text: "Customer review posted", time: "1 hour ago" },
     { id: 3, text: "Daily summary available", time: "3 hours ago" },
   ]);
+
+  const fetchLogo = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(
+        `http://localhost:8000/api/vendor/${user?.id}/`,
+        {
+          headers: {
+            Authorization: `Token ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch vendor data");
+      }
+
+      const data = await response.json();
+      const logoUrl = data.logo.startsWith("http")
+        ? data.logo
+        : `http://localhost:8000${data.logo}`;
+      setLogoPreview(logoUrl);
+    } catch (error) {
+      console.error("Error fetching logo:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Fetch logo when component mounts
+  useState(() => {
+    if (user?.id) {
+      fetchLogo();
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -43,9 +81,7 @@ export default function DashboardHeader({ onMenuClick }) {
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="flex-1 px-4 text-lg font-medium">
-          {restaurant_name}
-        </div>
+        <div className="flex-1 px-4 text-lg font-medium">{restaurant_name}</div>
 
         <div className="flex items-center space-x-4">
           {/* Theme Toggle Button */}
@@ -68,9 +104,14 @@ export default function DashboardHeader({ onMenuClick }) {
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {notifications.map((notification) => (
-                <DropdownMenuItem key={notification.id} className="flex flex-col items-start py-2">
+                <DropdownMenuItem
+                  key={notification.id}
+                  className="flex flex-col items-start py-2"
+                >
                   <span>{notification.text}</span>
-                  <span className="text-xs text-muted-foreground">{notification.time}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {notification.time}
+                  </span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -81,7 +122,17 @@ export default function DashboardHeader({ onMenuClick }) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                  <span className="text-sm font-medium text-orange-600 dark:text-orange-400">AP</span>
+                  {isLoading ? (
+                    <span className="text-orange-500">Loading...</span>
+                  ) : logoPreview ? (
+                    <img
+                      src={logoPreview}
+                      alt="Logo"
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <span className="text-orange-500">No Logo</span>
+                  )}
                 </div>
                 <ChevronDown className="h-4 w-4" />
               </Button>
@@ -89,13 +140,9 @@ export default function DashboardHeader({ onMenuClick }) {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem>Profile</DropdownMenuItem>
               <DropdownMenuItem>
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link href="/dashboard/settings">
-                Settings
-                </Link>
+                <Link href="/dashboard/settings">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem className="text-red-500" onClick={handleLogout}>
                 Logout
