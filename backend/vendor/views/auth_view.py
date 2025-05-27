@@ -141,7 +141,7 @@ class VendorDetailView(APIView):
             try:
                 logger.info("Checking for logo field")
                 if hasattr(user, 'logo') and user.logo:
-                    user_data["logo"] = user.logo.url
+                    user_data["logo"] = request.build_absolute_uri(user.logo.url)
                     logger.info(f"Logo found: {user.logo.url}")
                 else:
                     user_data["logo"] = None
@@ -170,7 +170,7 @@ class VendorDetailView(APIView):
 
 class VendorUpdateView(APIView):
     """
-    Update vendor details including logo
+    Update vendor details
     """
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   QrCode,
   Download,
@@ -82,7 +82,8 @@ export default function GenerateQR() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch tables");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to fetch tables");
       }
 
       const data = await response.json();
@@ -121,7 +122,8 @@ export default function GenerateQR() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to add table");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to add table");
       }
 
       const data = await response.json();
@@ -130,7 +132,7 @@ export default function GenerateQR() {
       toast.success("Table added successfully");
     } catch (error) {
       console.error("Error adding table:", error);
-      toast.error("Failed to add table");
+      toast.error(error.message || "Failed to add table");
     } finally {
       setIsAddingTable(false);
     }
@@ -151,14 +153,15 @@ export default function GenerateQR() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to delete table");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to delete table");
       }
 
       setTables(tables.filter((table) => table.id !== id));
       toast.success("Table deleted successfully");
     } catch (error) {
       console.error("Error deleting table:", error);
-      toast.error("Failed to delete table");
+      toast.error(error.message || "Failed to delete table");
     } finally {
       setIsDeletingTable(null);
     }
@@ -179,7 +182,8 @@ export default function GenerateQR() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to regenerate QR code");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to regenerate QR code");
       }
 
       const data = await response.json();
@@ -194,30 +198,47 @@ export default function GenerateQR() {
       toast.success("QR code regenerated");
     } catch (error) {
       console.error("Error regenerating QR code:", error);
-      toast.error("Failed to regenerate QR code");
+      toast.error(error.message || "Failed to regenerate QR code");
     } finally {
       setIsRegeneratingQR(null);
     }
   };
 
   const downloadQRCode = (table) => {
-    const canvas = document.getElementById(`qr-code-${table.id}`);
-    if (!canvas) return;
+    try {
+      const canvas = document.getElementById(`qr-code-${table.id}`);
+      if (!canvas) {
+        throw new Error("QR code canvas not found");
+      }
 
-    const pngUrl = canvas
-      .toDataURL("image/png")
-      .replace("image/png", "image/octet-stream");
+      const pngUrl = canvas
+        .toDataURL("image/png")
+        .replace("image/png", "image/octet-stream");
 
-    let downloadLink = document.createElement("a");
-    downloadLink.href = pngUrl;
-    downloadLink.download = `${table.name.replace(/\s+/g, "-")}-qr-code.png`;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = pngUrl;
+      downloadLink.download = `${table.name.replace(/\s+/g, "-")}-qr-code.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      toast.success("QR code downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading QR code:", error);
+      toast.error("Failed to download QR code");
+    }
   };
 
+  const getTableUrl = useCallback((tableId) => {
+    // Validate hostUrl isn't empty
+    if (!hostUrl) {
+      return `${window.location.protocol}//${window.location.host}/menu/${user.id}/${tableId}`;
+    }
+    return `${hostUrl}/menu/${user.id}/${tableId}`;
+  }, [hostUrl, user?.id]);
+
   const copyQRLink = (table) => {
-    const qrLink = `${hostUrl}/menu/${user.id}/${table.id}`;
+    const qrLink = getTableUrl(table.id);
 
     navigator.clipboard.writeText(qrLink).then(
       () => {
@@ -226,7 +247,7 @@ export default function GenerateQR() {
 
         // Reset copy status after 2 seconds
         setTimeout(() => {
-          setCopyStatus({ ...copyStatus, [table.id]: false });
+          setCopyStatus((prevStatus) => ({ ...prevStatus, [table.id]: false }));
         }, 2000);
       },
       () => {
@@ -236,7 +257,7 @@ export default function GenerateQR() {
   };
 
   const shareQRCode = (table) => {
-    const qrLink = `${hostUrl}/menu/${user.id}/${table.id}`;
+    const qrLink = getTableUrl(table.id);
 
     setSelectedTable({
       ...table,
@@ -262,6 +283,10 @@ export default function GenerateQR() {
         setShowDialog(false);
       } catch (error) {
         console.error("Error sharing:", error);
+        // Don't close dialog on error to allow retry
+        if (error.name !== "AbortError") {
+          toast.error("Failed to share");
+        }
       }
     } else {
       // Fallback for browsers that don't support the Web Share API
@@ -347,7 +372,7 @@ export default function GenerateQR() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">
+                  <label className="text-sm font-medium mb-2 block" htmlFor="new-table-input">
                     Table Name/Number
                   </label>
                   <div className="flex space-x-2">
@@ -358,11 +383,16 @@ export default function GenerateQR() {
                       onChange={(e) => setNewTableName(e.target.value)}
                       placeholder="e.g., Table 4"
                       disabled={isAddingTable}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !isAddingTable && newTableName.trim()) {
+                          addTable();
+                        }
+                      }}
                     />
                     <Button
                       onClick={addTable}
                       className="bg-orange-500 hover:bg-orange-600 text-white"
-                      disabled={isAddingTable}
+                      disabled={isAddingTable || !newTableName.trim()}
                     >
                       {isAddingTable ? (
                         <>
@@ -460,44 +490,62 @@ export default function GenerateQR() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-medium">{table.name}</h3>
                     <div className="flex space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => regenerateQR(table.id)}
-                        className="text-orange-500"
-                        disabled={isRegeneratingQR === table.id}
-                      >
-                        {isRegeneratingQR === table.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteTable(table.id)}
-                        className="text-red-500"
-                        disabled={isDeletingTable === table.id}
-                      >
-                        {isDeletingTable === table.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => regenerateQR(table.id)}
+                              className="text-orange-500"
+                              disabled={isRegeneratingQR === table.id}
+                            >
+                              {isRegeneratingQR === table.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Regenerate QR code</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteTable(table.id)}
+                              className="text-red-500"
+                              disabled={isDeletingTable === table.id}
+                            >
+                              {isDeletingTable === table.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Delete table</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </div>
 
                   <div className="aspect-square bg-white rounded-lg flex items-center justify-center p-4 mb-4">
                     <QRCodeCanvas
                       id={`qr-code-${table.id}`}
-                      value={`${hostUrl}/menu/${user.id}/${table.id}`}
+                      value={getTableUrl(table.id)}
                       size={180}
                       level={"H"}
                       includeMargin={true}
                       imageSettings={{
-                        src: "/logo192.png",
                         x: undefined,
                         y: undefined,
                         height: 30,
@@ -559,7 +607,7 @@ export default function GenerateQR() {
             {selectedTable && (
               <>
                 <div className="bg-white p-4 rounded-lg mb-4">
-                  <QRCode
+                  <QRCodeSVG
                     value={selectedTable.shareUrl}
                     size={150}
                     level={"H"}

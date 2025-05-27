@@ -7,6 +7,7 @@ from .views.order_view import OrderListView, OrderStatusUpdateView, OrderDetails
 from .views.table_view import TableListView, TableCreateView, TableDeleteView, TableRegenerateQRView
 # Import other views
 from .views.dashboard_view import DashboardStatsView
+from .views.algorithm_view import MenuRecommendationsView, MenuSearchView, MenuSortView
 
 urlpatterns = [
     # Vendor Authentication URLs
@@ -42,4 +43,9 @@ urlpatterns = [
 
     # Add the dashboard stats endpoint
     path('vendor/<int:vendor_id>/dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
+
+    # Menu algorithm endpoints
+    path('menu/<int:vendor_id>/recommendations/', MenuRecommendationsView.as_view(), name='menu-recommendations'),
+    path('menu/<int:vendor_id>/search/', MenuSearchView.as_view(), name='menu-search'),
+    path('menu/<int:vendor_id>/sort/', MenuSortView.as_view(), name='menu-sort'),
 ]

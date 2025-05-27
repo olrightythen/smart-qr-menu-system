@@ -15,6 +15,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
 from ..models import Vendor, MenuItem
+from ..algorithms import RecommendationEngine
 import json
 import logging
 
@@ -457,10 +458,23 @@ class PublicMenuView(APIView):
                 } for category_name, items in categories.items()
             ]
             
+            # Get popular recommendations
+            recommendation_engine = RecommendationEngine(vendor_id)
+            popular_items = recommendation_engine.get_popular_items(limit=5)
+            
+            # Add image URLs to popular items
+            for item in popular_items:
+                menu_item = MenuItem.objects.get(id=item['id'])
+                if menu_item.image and hasattr(menu_item.image, 'url'):
+                    item['image_url'] = request.build_absolute_uri(menu_item.image.url)
+                else:
+                    item['image_url'] = None
+            
             return Response({
                 'vendor_info': vendor_info,
                 'categories': formatted_categories,
-                'total_items': menu_items.count()
+                'total_items': menu_items.count(),
+                'popular_items': popular_items  # Add popular items to the response
             })
             
         except Exception as e:

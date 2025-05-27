@@ -185,7 +185,7 @@ export default function PaymentResult() {
                   <span>
                     {item.quantity}x {item.name}
                   </span>
-                  <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+                  <span>Rs. {(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -194,7 +194,7 @@ export default function PaymentResult() {
 
             <div className="flex justify-between font-medium">
               <span>Total Amount</span>
-              <span>₹{orderDetails.total_amount.toFixed(2)}</span>
+              <span>Rs. {orderDetails.total_amount.toFixed(2)}</span>
             </div>
 
             {orderDetails.transaction_id && (

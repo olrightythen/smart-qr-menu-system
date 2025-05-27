@@ -29,6 +29,7 @@ export default function Settings() {
   const { user, token, updateUserData } = useAuth();
   const fileInputRef = useRef(null);
 
+  // Initialize formData with empty values
   const [formData, setFormData] = useState({
     restaurant_name: "",
     owner_name: "",
@@ -40,61 +41,52 @@ export default function Settings() {
     closing_time: "",
   });
 
-  // Fetch vendor data when component mounts
+  // Move data fetching to a dedicated useEffect that runs AFTER the initial render
+  // and only when user/token are available
   useEffect(() => {
-    if (user?.id && token) {
-      fetchVendorData();
-    } else {
+    // Skip if no user or token - avoids unnecessary API calls
+    if (!user?.id || !token) {
       setIsLoading(false);
+      return;
     }
-  }, [user, token]);
 
-  const fetchVendorData = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(
-        `http://localhost:8000/api/vendor/${user.id}/`,
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
+    // Fetch vendor data with normal Promise chain
+    fetch(`http://localhost:8000/api/vendor/${user.id}/`, {
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to fetch settings");
         }
-      );
+        return response.json();
+      })
+      .then((data) => {
+        // Update form data
+        setFormData({
+          restaurant_name: data.restaurant_name || "",
+          owner_name: data.owner_name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          location: data.location || "",
+          description: data.description || "",
+          opening_time: data.opening_time || "",
+          closing_time: data.closing_time || "",
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch vendor data");
-      }
-
-      const data = await response.json();
-
-      setFormData({
-        restaurant_name: data.restaurant_name || "",
-        owner_name: data.owner_name || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        location: data.location || "",
-        description: data.description || "",
-        opening_time: data.opening_time || "",
-        closing_time: data.closing_time || "",
+        if (data.logo) {
+          setLogoPreview(data.logo);
+        }
+      })
+      .catch((err) => {
+        console.error("Error loading settings:", err);
+        setError("Failed to load settings");
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-
-      // Check if logo is a complete URL or a relative path
-      if (data.logo) {
-        // If it's a relative URL, make sure to add the base URL
-        const logoUrl = data.logo.startsWith('http') ? data.logo : `http://localhost:8000${data.logo}`;
-        setLogoPreview(logoUrl);
-      }
-
-      setError(null);
-    } catch (error) {
-      console.error("Error fetching vendor data:", error);
-      setError("Failed to load your restaurant information. Please try again.");
-      toast.error("Could not load your settings");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [user, token]); // Only re-run when user or token changes
 
   const handleChange = (e) => {
     const { name, value } = e.target;

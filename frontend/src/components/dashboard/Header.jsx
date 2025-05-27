@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, ChevronDown, Menu, Moon, Sun } from 'lucide-react';
 import {
   DropdownMenu,
@@ -47,9 +47,7 @@ export default function DashboardHeader({ onMenuClick }) {
       }
 
       const data = await response.json();
-      const logoUrl = data.logo.startsWith("http")
-        ? data.logo
-        : `http://localhost:8000${data.logo}`;
+      const logoUrl = data.logo;
       setLogoPreview(logoUrl);
     } catch (error) {
       console.error("Error fetching logo:", error);
@@ -59,7 +57,7 @@ export default function DashboardHeader({ onMenuClick }) {
   };
   
   // Fetch logo when component mounts
-  useState(() => {
+  useEffect(() => {
     if (user?.id) {
       fetchLogo();
     }
