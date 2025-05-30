@@ -208,7 +208,7 @@ export const CartProvider = ({
     pendingCartItemsRef.current = null;
   }, []);
 
-  // Check for pending cart clearance (after returning from payment)
+  // Check for pending cart clearance (after returning from successful payment)
   useEffect(() => {
     const clearCartKey = `clear_cart_${vendorId}_${tableNo}`;
     const shouldClearCart = localStorage.getItem(clearCartKey);

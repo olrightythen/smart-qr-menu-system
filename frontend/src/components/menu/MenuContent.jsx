@@ -41,7 +41,7 @@ const MenuContent = ({
   const [isSearching, setIsSearching] = useState(false);
   const [sortMethod, setSortMethod] = useState("popularity");
   const [sortOrder, setSortOrder] = useState("desc");
-  const [showRecommendations, setShowRecommendations] = useState(true);
+  const [showRecommendations, setShowRecommendations] = useState(false);
   const [isSorting, setIsSorting] = useState(false);
 
   const filteredItems = menuItems.filter((item) => {
@@ -351,7 +351,7 @@ const MenuContent = ({
                 </span>
               </div>
             ) : recommendations.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {recommendations.map((item) => (
                   <RecommendationItem key={`rec-${item.id}`} item={item} />
                 ))}
@@ -388,7 +388,7 @@ const MenuContent = ({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredItems.map((item) => (
               <MenuItem
                 key={item.id}

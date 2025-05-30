@@ -16,13 +16,8 @@ import toast from "react-hot-toast";
 const Cart = ({ vendorId, tableNo }) => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  
-  const { 
-    cart, 
-    removeFromCart, 
-    updateQuantity, 
-    cartTotal 
-  } = useCart();
+
+  const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
 
   const handleCheckout = async () => {
     if (cart.length === 0) {
@@ -100,8 +95,7 @@ const Cart = ({ vendorId, tableNo }) => {
       document.body.appendChild(form);
       form.submit();
 
-      // Store flag to clear cart after successful payment
-      localStorage.setItem(`clear_cart_${vendorId}_${tableNo}`, "true");
+      // Remove this line - don't set cart clearing flag immediately
     } catch (error) {
       console.error("Payment error:", error);
       toast.error(error.message || "Payment failed. Please try again.");
@@ -221,7 +215,5 @@ const Cart = ({ vendorId, tableNo }) => {
     </>
   );
 };
-
-
 
 export default Cart;
