@@ -47,7 +47,7 @@ const Cart = ({ vendorId, tableNo }) => {
           body: JSON.stringify({
             items,
             vendor_id: vendorId,
-            table_no: tableNo,
+            table_identifier: tableNo, // Changed from table_no
           }),
         }
       );

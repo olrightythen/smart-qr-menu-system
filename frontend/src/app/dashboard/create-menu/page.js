@@ -5,15 +5,12 @@ import { Plus, Upload, X, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import DashboardSidebar from "@/components/dashboard/Sidebar";
-import DashboardHeader from "@/components/dashboard/Header";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 export default function CreateMenu() {
   const router = useRouter();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [menuItems, setMenuItems] = useState([
     {
       name: "",
@@ -184,175 +181,160 @@ export default function CreateMenu() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardSidebar
-        isOpen={isSidebarOpen}
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-      />
+    <main className="p-4 md:p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl md:text-3xl font-bold">Create Menu</h1>
+        <Button
+          onClick={addMenuItem}
+          className="bg-orange-500 hover:bg-orange-600 text-white"
+          disabled={isSubmitting}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Item
+        </Button>
+      </div>
 
-      <div
-        className={`${
-          isSidebarOpen ? "lg:ml-64" : "lg:ml-20"
-        } transition-all duration-300`}
-      >
-        <DashboardHeader onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />
-
-        <main className="p-4 md:p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl md:text-3xl font-bold">Create Menu</h1>
-            <Button
-              onClick={addMenuItem}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={isSubmitting}
+      <div className="space-y-6">
+        {menuItems.map((item, index) => (
+          <div
+            key={index}
+            className="bg-card rounded-lg border border-border p-6 relative"
+          >
+            <button
+              type="button"
+              onClick={() => removeMenuItem(index)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Item
-            </Button>
-          </div>
+              <X className="h-5 w-5" />
+            </button>
 
-          <div className="space-y-6">
-            {menuItems.map((item, index) => (
-              <div
-                key={index}
-                className="bg-card rounded-lg border border-border p-6 relative"
-              >
-                <button
-                  type="button"
-                  onClick={() => removeMenuItem(index)}
-                  className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Item Name*</label>
+                  <Input
+                    value={item.name}
+                    onChange={(e) =>
+                      handleItemChange(index, "name", e.target.value)
+                    }
+                    placeholder="e.g., Butter Chicken"
+                  />
+                </div>
 
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">Item Name*</label>
-                      <Input
-                        value={item.name}
-                        onChange={(e) =>
-                          handleItemChange(index, "name", e.target.value)
-                        }
-                        placeholder="e.g., Butter Chicken"
-                      />
-                    </div>
+                <div>
+                  <label className="text-sm font-medium">Price*</label>
+                  <Input
+                    type="number"
+                    value={item.price}
+                    onChange={(e) =>
+                      handleItemChange(index, "price", e.target.value)
+                    }
+                    placeholder="e.g., 250"
+                  />
+                </div>
 
-                    <div>
-                      <label className="text-sm font-medium">Price*</label>
-                      <Input
-                        type="number"
-                        value={item.price}
-                        onChange={(e) =>
-                          handleItemChange(index, "price", e.target.value)
-                        }
-                        placeholder="e.g., 250"
-                      />
-                    </div>
+                <div>
+                  <label className="text-sm font-medium">Category*</label>
+                  <Input
+                    value={item.category}
+                    onChange={(e) =>
+                      handleItemChange(index, "category", e.target.value)
+                    }
+                    placeholder="e.g., Main Course"
+                  />
+                </div>
+              </div>
 
-                    <div>
-                      <label className="text-sm font-medium">Category*</label>
-                      <Input
-                        value={item.category}
-                        onChange={(e) =>
-                          handleItemChange(index, "category", e.target.value)
-                        }
-                        placeholder="e.g., Main Course"
-                      />
-                    </div>
-                  </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Description</label>
+                  <Textarea
+                    value={item.description}
+                    onChange={(e) =>
+                      handleItemChange(index, "description", e.target.value)
+                    }
+                    placeholder="Describe your dish..."
+                    className="h-32"
+                  />
+                </div>
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">Description</label>
-                      <Textarea
-                        value={item.description}
-                        onChange={(e) =>
-                          handleItemChange(index, "description", e.target.value)
-                        }
-                        placeholder="Describe your dish..."
-                        className="h-32"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium block mb-2">
-                        Item Image
-                      </label>
-                      <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
-                        {item.imagePreview ? (
-                          <div className="space-y-2">
-                            <div className="relative w-full aspect-video mx-auto">
-                              <img
-                                src={item.imagePreview}
-                                alt="Preview"
-                                className="rounded-md object-cover w-full h-full"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleItemChange(index, "image", null) &
-                                  handleItemChange(index, "imagePreview", null)
-                                }
-                                className="absolute top-2 right-2 bg-black/50 rounded-full p-1 hover:bg-black/70 transition-colors"
-                              >
-                                <X className="h-4 w-4 text-white" />
-                              </button>
-                            </div>
-                            <p className="text-sm text-green-600 flex items-center justify-center">
-                              <CheckCircle2 className="h-4 w-4 mr-1" /> Image
-                              uploaded
-                            </p>
-                          </div>
-                        ) : (
-                          <>
-                            <input
-                              ref={(el) => (fileInputRefs.current[index] = el)}
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp"
-                              className="hidden"
-                              onChange={(e) => handleFileChange(e, index)}
-                              aria-label="Upload image file"
-                            />
-                            <Button
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => triggerFileSelect(index)}
-                              type="button"
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              Upload Image
-                            </Button>
-                            <p className="text-sm text-muted-foreground mt-2">
-                              PNG, JPG up to 5MB
-                            </p>
-                          </>
-                        )}
+                <div>
+                  <label className="text-sm font-medium block mb-2">
+                    Item Image
+                  </label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
+                    {item.imagePreview ? (
+                      <div className="space-y-2">
+                        <div className="relative w-full aspect-video mx-auto">
+                          <img
+                            src={item.imagePreview}
+                            alt="Preview"
+                            className="rounded-md object-cover w-full h-full"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleItemChange(index, "image", null) &
+                              handleItemChange(index, "imagePreview", null)
+                            }
+                            className="absolute top-2 right-2 bg-black/50 rounded-full p-1 hover:bg-black/70 transition-colors"
+                          >
+                            <X className="h-4 w-4 text-white" />
+                          </button>
+                        </div>
+                        <p className="text-sm text-green-600 flex items-center justify-center">
+                          <CheckCircle2 className="h-4 w-4 mr-1" /> Image
+                          uploaded
+                        </p>
                       </div>
-                    </div>
+                    ) : (
+                      <>
+                        <input
+                          ref={(el) => (fileInputRefs.current[index] = el)}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={(e) => handleFileChange(e, index)}
+                          aria-label="Upload image file"
+                        />
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => triggerFileSelect(index)}
+                          type="button"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Image
+                        </Button>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          PNG, JPG up to 5MB
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
-            ))}
-
-            <div className="flex justify-end space-x-4">
-              <Button
-                variant="outline"
-                onClick={() => router.push("/dashboard/manage-menu")}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Creating Menu..." : "Publish Menu"}
-              </Button>
             </div>
           </div>
-        </main>
+        ))}
+
+        <div className="flex justify-end space-x-4">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/dashboard/manage-menu")}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            className="bg-orange-500 hover:bg-orange-600 text-white"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Creating Menu..." : "Publish Menu"}
+          </Button>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

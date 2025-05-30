@@ -11,14 +11,14 @@ class EsewaPaymentHandler:
     SECRET_KEY = "8gBm/:&EnhH.1/q"
     PRODUCT_CODE = "EPAYTEST"
 
-    def __init__(self, items, vendor_id=None, table_no=None):  
+    def __init__(self, items, vendor_id=None, table_identifier=None):  # Changed from table_no
         # items = [{"id": menu_item_id, "quantity": x}, ...]
         self.items = items
         self.menu_items = self._get_menu_items()
         self.invoice_no = f"INV{int(now().timestamp())}"
         self.total = self._calculate_total()
         self.vendor_id = vendor_id
-        self.table_no = table_no
+        self.table_identifier = table_identifier  # Changed from table_no
         self.vendor = self._validate_vendor()
 
     def _get_menu_items(self):
@@ -80,7 +80,7 @@ class EsewaPaymentHandler:
             status="pending",
             payment_status="pending",
             payment_method="esewa",
-            table_no=self.table_no,
+            table_identifier=self.table_identifier,  # Changed from table_no
             invoice_no=self.invoice_no,
             total_amount=self.total
         )

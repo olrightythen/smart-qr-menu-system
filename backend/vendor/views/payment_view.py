@@ -22,7 +22,7 @@ class EsewaInitiatePaymentView(View):
             data = json.loads(request.body)
             items = data.get("items")
             vendor_id = data.get("vendor_id")
-            table_no = data.get("table_no")
+            table_identifier = data.get("table_identifier")  # Changed from table_no
             
             if not items:
                 return HttpResponseBadRequest("Missing items")
@@ -30,7 +30,7 @@ class EsewaInitiatePaymentView(View):
             if not vendor_id:
                 return HttpResponseBadRequest("Missing vendor ID")
 
-            handler = EsewaPaymentHandler(items, vendor_id, table_no)
+            handler = EsewaPaymentHandler(items, vendor_id, table_identifier)  # Changed parameter
             response_data = handler.get_response_data()
             # Log response for debugging
             print("Payment response data:", response_data)

@@ -91,12 +91,26 @@ export default function Signup() {
     if (!formData.restaurant_name.trim()) {
       newErrors.restaurant_name = "Restaurant name is required";
       isValid = false;
+    } else {
+      const nameRegex = /^[a-zA-Z0-9\s.,'-]{3,50}$/;
+      if (!nameRegex.test(formData.restaurant_name)) {
+        newErrors.restaurant_name =
+          "Name must be 3-50 characters and can include letters, numbers, spaces, and basic punctuation";
+        isValid = false;
+      }
     }
 
     // Owner name validation
     if (!formData.owner_name.trim()) {
       newErrors.owner_name = "Owner name is required";
       isValid = false;
+    } else {
+      const nameRegex = /^[a-zA-Z\s.,'-]{3,50}$/;
+      if (!nameRegex.test(formData.owner_name)) {
+        newErrors.owner_name =
+          "Owner name must be 3-50 characters and can include letters, spaces, and basic punctuation";
+        isValid = false;
+      }
     }
 
     // Location validation

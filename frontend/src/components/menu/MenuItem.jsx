@@ -14,12 +14,13 @@ const MenuItem = ({ item, isPopular }) => {
     <div className="bg-card rounded-xl overflow-hidden border border-border hover:shadow-md transition-shadow">
       <div className="aspect-video relative">
         <img
-          src={getImageWithFallback(item.image)}
+          src={item.image}
           alt={item.name}
           className="w-full h-full object-cover"
           onError={(e) => {
-            e.target.src = "/images/default-food-image.jpg";
+            e.target.src = "/images/default-food-image.png";
           }}
+          loading="lazy"
         />
         {!item.available && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">

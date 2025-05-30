@@ -28,7 +28,8 @@ const MenuContent = ({
   setMenuItems,
   vendorInfo,
   vendor,
-  tabel_no,
+  tabel_identifier,
+  tableInfo, // Add tableInfo prop
   recommendations,
   fetchMenuData,
   isLoadingRecommendations,
@@ -222,13 +223,13 @@ const MenuContent = ({
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">{vendorInfo?.restaurant_name}</h1>
-            {vendorInfo && (
-              <p className="text-xs text-muted-foreground">Table #{tabel_no}</p>
+            {tableInfo && (
+              <p className="text-xs text-muted-foreground">{tableInfo.name}</p>
             )}
           </div>
 
           {/* Cart Component */}
-          <Cart vendorId={vendor} tableNo={tabel_no} />
+          <Cart vendorId={vendor} tableNo={tabel_identifier} />
         </div>
       </header>
 
@@ -242,6 +243,12 @@ const MenuContent = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
+              name="search"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch(e.target.value);
+                }
+              }}
             />
             {isSearching && (
               <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin" />

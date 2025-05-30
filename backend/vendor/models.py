@@ -75,9 +75,10 @@ class Order(models.Model):
         ('cancelled', 'Cancelled'),
     )
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='orders')
+    table = models.ForeignKey('Table', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    table_no = models.CharField(max_length=20, null=True, blank=True)
+    table_identifier = models.CharField(max_length=100, null=True, blank=True)  # Keep for backward compatibility
     invoice_no = models.CharField(max_length=100, unique=True, default="INV-000000")
     transaction_id = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(default=now)

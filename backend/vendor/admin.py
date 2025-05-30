@@ -66,17 +66,17 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('invoice_no', 'vendor_name', 'table_no', 'total_amount', 'status', 
+    list_display = ('invoice_no', 'vendor_name', 'table_identifier', 'total_amount', 'status', 
                    'payment_status', 'payment_method', 'created_at')
     list_filter = ('status', 'payment_status', 'payment_method', 'created_at')
-    search_fields = ('invoice_no', 'vendor__restaurant_name', 'table_no', 'transaction_id')
+    search_fields = ('invoice_no', 'vendor__restaurant_name', 'table_identifier', 'transaction_id')
     
     # Only include fields that exist on your model
     readonly_fields = tuple(f for f in ['invoice_no', 'transaction_id', 'created_at', 'total_amount'] 
                            if model_has_field(Order, f))
     
     fieldsets = (
-        (None, {'fields': ('vendor', 'table_no', 'invoice_no')}),
+        (None, {'fields': ('vendor', 'table_identifier', 'invoice_no')}),
         ('Order Details', {'fields': ('status', 'total_amount')}),
         ('Payment Information', {'fields': ('payment_status', 'payment_method', 'transaction_id')}),
         ('Timestamps', {'fields': tuple(f for f in ['created_at', 'updated_at'] 
@@ -126,6 +126,9 @@ class OrderItemAdmin(admin.ModelAdmin):
     order_invoice.admin_order_field = "order__invoice_no"
     
     def menu_item_name(self, obj):
+        # Add a check for None before accessing the name attribute
+        if obj.menu_item is None:
+            return "Deleted Item"
         return obj.menu_item.name
     menu_item_name.short_description = "Menu Item"
     menu_item_name.admin_order_field = "menu_item__name"
@@ -197,6 +200,4 @@ class TableAdmin(admin.ModelAdmin):
             updated = queryset.update(is_active=False)
             self.message_user(request, f"Successfully deactivated {updated} tables.")
     deactivate_tables.short_description = "Deactivate selected tables"
-
-
 

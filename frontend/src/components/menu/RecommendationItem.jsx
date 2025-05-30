@@ -14,7 +14,7 @@ const RecommendationItem = ({ item }) => {
           alt={item.name}
           className="w-full h-full object-cover"
           onError={(e) => {
-            e.target.src = "/images/default-food-image.jpg";
+            e.target.src = "/images/default-food-image.png";
           }}
         />
         <Badge className="absolute top-2 right-2 bg-orange-500">

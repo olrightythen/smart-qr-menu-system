@@ -1,12 +1,19 @@
 from django.urls import path
-from .views.auth_view import VendorRegisterView, VendorLoginView, VendorDetailView, VendorUpdateView
+from .views.auth_view import VendorRegisterView, VendorLoginView
 from .views.menu_view import CreateMenuView, MenuItemListView, MenuItemDetailView, ToggleMenuItemAvailabilityView
 from .views.menu_view import PublicMenuView
 from .views.payment_view import EsewaPaymentVerifyView, EsewaInitiatePaymentView
 from .views.order_view import OrderListView, OrderStatusUpdateView, OrderDetailsView
 from .views.table_view import TableListView, TableCreateView, TableDeleteView, TableRegenerateQRView
+from .views.table_view import TableToggleAvailabilityView, TableRenameView, PublicTableStatusView
 # Import other views
-from .views.dashboard_view import DashboardStatsView
+from .views.dashboard_view import (
+    DashboardStatsView, 
+    SalesReportView, 
+    PaymentSummaryView,
+    VendorProfileView,
+    VendorProfileUpdateView
+)
 from .views.algorithm_view import MenuRecommendationsView, MenuSearchView, MenuSortView
 
 urlpatterns = [
@@ -15,8 +22,8 @@ urlpatterns = [
     path('vendor/register/', VendorRegisterView.as_view(), name='vendor-register'),
 
     # Vendor Profile URLs
-    path('vendor/<int:vendor_id>/', VendorDetailView.as_view(), name='vendor_profile'),
-    path('vendor/<int:vendor_id>/update/', VendorUpdateView.as_view(), name='vendor_update'),
+    path('vendor/<int:vendor_id>/', VendorProfileView.as_view(), name='vendor-profile'),
+    path('vendor/<int:vendor_id>/update/', VendorProfileUpdateView.as_view(), name='vendor-profile-update'),
 
     # Vendor Menu URLs
     path('menu/create/<int:vendor_id>/', CreateMenuView.as_view(), name='create-menu'),
@@ -36,6 +43,11 @@ urlpatterns = [
     path('vendor/<int:vendor_id>/tables/add/', TableCreateView.as_view(), name='table-create'),
     path('vendor/<int:vendor_id>/tables/<int:table_id>/delete/', TableDeleteView.as_view(), name='table-delete'),
     path('vendor/<int:vendor_id>/tables/<int:table_id>/regenerate-qr/', TableRegenerateQRView.as_view(), name='table-regenerate-qr'),
+    path('vendor/<int:vendor_id>/tables/<int:table_id>/toggle-availability/', TableToggleAvailabilityView.as_view(), name='table-toggle-availability'),
+    path('vendor/<int:vendor_id>/tables/<int:table_id>/rename/', TableRenameView.as_view(), name='table-rename'),
+    
+    # Public table status endpoint (updated to use qr_code identifier)
+    path('public-table/<int:vendor_id>/<str:table_identifier>/', PublicTableStatusView.as_view(), name='public-table-status'),
 
     # Payment URLs
     path('initiate-payment/', EsewaInitiatePaymentView.as_view(), name='initiate_payment'),
@@ -43,6 +55,8 @@ urlpatterns = [
 
     # Add the dashboard stats endpoint
     path('vendor/<int:vendor_id>/dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
+    path('vendor/<int:vendor_id>/sales-report/', SalesReportView.as_view(), name='sales-report'),
+    path('vendor/<int:vendor_id>/payment-summary/', PaymentSummaryView.as_view(), name='payment-summary'),
 
     # Menu algorithm endpoints
     path('menu/<int:vendor_id>/recommendations/', MenuRecommendationsView.as_view(), name='menu-recommendations'),

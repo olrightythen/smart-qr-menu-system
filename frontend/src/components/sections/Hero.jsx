@@ -5,6 +5,7 @@ import { QrCode, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Hero() {
   const [isVisible, setIsVisible] = useState(false);
@@ -48,15 +49,17 @@ export default function Hero() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <Link href="/signup">
               <Button
                 size="lg"
                 className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 Get Started <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              <Button size="lg" variant="outline">
+              </Link>
+              {/* <Button size="lg" variant="outline">
                 Try Demo
-              </Button>
+              </Button> */}
             </div>
 
             <div className="flex items-center justify-center lg:justify-start space-x-4 pt-2">

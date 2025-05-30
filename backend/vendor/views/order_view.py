@@ -30,8 +30,8 @@ class OrderListView(APIView):
             
             vendor = get_object_or_404(Vendor, id=vendor_id)
             
-            # Get all orders for this vendor
-            orders = Order.objects.filter(vendor=vendor).order_by('-created_at')
+            # Get all orders for this vendor with related table data
+            orders = Order.objects.filter(vendor=vendor).select_related('table').order_by('-created_at')
             
             orders_data = []
             for order in orders:
@@ -40,7 +40,7 @@ class OrderListView(APIView):
                 
                 items_data = [{
                     'id': item.id,
-                    'name': item.menu_item.name if item.menu_item else "Unknown Item",
+                    'name': item.menu_item.name if item.menu_item else "Deleted Item",
                     'price': str(item.price),
                     'quantity': item.quantity,
                 } for item in items]
@@ -48,14 +48,18 @@ class OrderListView(APIView):
                 # Format time elapsed
                 time_elapsed = self._get_time_elapsed(order.created_at)
                 
+                # Get table name from the related table object
+                table_name = order.table.name if order.table else (order.table_identifier or "Unknown Table")
+                
                 orders_data.append({
                     'id': order.id,
-                    'order_id': f"ORD{order.id:03d}",  # Format like ORD001
+                    'order_id': f"ORD{order.id:03d}",
                     'status': order.status,
                     'payment_status': order.payment_status,
                     'payment_method': order.payment_method,
                     'total_amount': str(order.total_amount),
-                    'table_no': order.table_no,
+                    'table_name': table_name,
+                    'qr_code': str(order.table.qr_code) if order.table else None,
                     'invoice_no': order.invoice_no,
                     'created_at': order.created_at.isoformat(),
                     'time_elapsed': time_elapsed,
@@ -137,13 +141,13 @@ class OrderDetailsView(View):
         try:
             # If order_id is provided in the URL
             if order_id:
-                order = Order.objects.get(id=order_id)
+                order = Order.objects.select_related('table', 'vendor').get(id=order_id)
             # Otherwise check for invoice_no in query params
             else:
                 invoice_no = request.GET.get('invoice_no')
                 if not invoice_no:
                     return JsonResponse({"error": "Order ID or invoice number is required"}, status=400)
-                order = Order.objects.get(invoice_no=invoice_no)
+                order = Order.objects.select_related('table', 'vendor').get(invoice_no=invoice_no)
                 
             # Get the order items
             order_items = order.items.all().select_related('menu_item')
@@ -165,13 +169,17 @@ class OrderDetailsView(View):
                 "phone": order.vendor.phone or "N/A"
             }
             
+            # Get table name from the related table object
+            table_name = order.table.name if order.table else (order.table_identifier or "Unknown Table")
+            
             response_data = {
                 "order_id": order.id,
                 "invoice_no": order.invoice_no,
                 "timestamp": order.created_at.isoformat(),
                 "status": order.status,
                 "payment_status": order.payment_status,
-                "table_no": order.table_no,
+                "table_name": table_name,  # Changed from table_identifier to table_name
+                "qr_code": str(order.table.qr_code) if order.table else None,
                 "total_amount": float(order.total_amount),
                 "transaction_id": order.transaction_id,
                 "items": items_data,

@@ -11,13 +11,14 @@ import MenuContent from "@/components/menu/MenuContent";
 // Main wrapper that provides cart context
 export default function MenuPage() {
   const params = useParams();
-  const { vendor, tabel_no } = params;
+  const { vendor, tabel_identifier } = params;
 
   const [categories, setCategories] = useState(["All"]);
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [vendorInfo, setVendorInfo] = useState(null);
+  const [tableInfo, setTableInfo] = useState(null); // Add tableInfo state
   const [recommendations, setRecommendations] = useState([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] =
     useState(false);
@@ -68,6 +69,33 @@ export default function MenuPage() {
   const fetchMenuData = async () => {
     try {
       setLoading(true);
+
+      // Check table availability using qr_code identifier
+      const tableResponse = await fetch(
+        `http://localhost:8000/api/public-table/${vendor}/${tabel_identifier}/`
+      );
+
+      if (!tableResponse.ok) {
+        throw new Error("Table not found or inactive");
+      }
+
+      const tableData = await tableResponse.json();
+
+      if (!tableData.is_active) {
+        setError(
+          "This table is currently unavailable. Please contact the restaurant."
+        );
+        return;
+      }
+
+      // Store table information
+      setTableInfo({
+        id: tableData.table_id,
+        name: tableData.name,
+        qr_code: tableData.qr_code,
+        is_active: tableData.is_active,
+      });
+
       const response = await fetch(
         `http://localhost:8000/api/public-menu/${vendor}/`
       );
@@ -153,16 +181,17 @@ export default function MenuPage() {
   return (
     <CartProvider
       vendorId={vendor}
-      tableNo={tabel_no}
+      tableNo={tabel_identifier} // This will now be the qr_code identifier
       onUpdateRecommendations={fetchRecommendations}
     >
       <MenuContent
         categories={categories}
         menuItems={menuItems}
-        setMenuItems={setMenuItems} // Pass the setter function
+        setMenuItems={setMenuItems}
         vendorInfo={vendorInfo}
         vendor={vendor}
-        tabel_no={tabel_no}
+        tabel_identifier={tabel_identifier}
+        tableInfo={tableInfo} // Pass tableInfo to MenuContent
         recommendations={recommendations}
         setRecommendations={setRecommendations}
         fetchMenuData={fetchMenuData}

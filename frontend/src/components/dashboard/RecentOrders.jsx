@@ -16,7 +16,18 @@ const statusStyles = {
 export default function RecentOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const { user, token } = useAuth();
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     if (user?.id && token) {
@@ -45,9 +56,7 @@ export default function RecentOrders() {
       // Process the data to add items_text
       const processedOrders = data.orders.map((order) => ({
         ...order,
-        items_text: order.items
-          .map((item) => item.name)
-          .join(", "),
+        items_text: order.items.map((item) => item.name).join(", "),
       }));
 
       // Only take the 5 most recent orders
@@ -64,71 +73,121 @@ export default function RecentOrders() {
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
+  // Mobile card view
+  const MobileOrderCard = ({ order }) => (
+    <div className="bg-background border border-border rounded-lg p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-medium text-sm">{order.order_id}</h3>
+        <span
+          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            statusStyles[order.status] || "bg-gray-100"
+          }`}
+        >
+          {formatStatus(order.status)}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <span className="text-muted-foreground">Table:</span>
+          <span className="ml-1 font-medium">{order.table_name || "N/A"}</span> {/* Changed from table_no */}
+        </div>
+        <div>
+          <span className="text-muted-foreground">Amount:</span>
+          <span className="ml-1 font-medium">
+            Rs. {parseFloat(order.total_amount).toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <span className="text-muted-foreground text-sm">Items:</span>
+        <p className="text-sm mt-1 line-clamp-2">{order.items_text}</p>
+      </div>
+
+      <div className="text-xs text-muted-foreground">{order.time_elapsed}</div>
+    </div>
+  );
+
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
-      <div className="p-4 md:p-6">
-        <h2 className="text-xl font-semibold mb-4">Recent Orders</h2>
+      <div className="p-3 sm:p-4 md:p-6">
+        <h2 className="text-lg sm:text-xl font-semibold mb-4">Recent Orders</h2>
         {loading ? (
           <div className="text-center py-8">
-            <div className="w-8 h-8 border-4 border-t-primary border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mx-auto"></div>
+            <div className="w-6 h-6 sm:w-8 sm:h-8 border-4 border-t-primary border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mx-auto"></div>
             <p className="mt-2 text-sm text-muted-foreground">
               Loading orders...
             </p>
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            No recent orders found
+            <p className="text-sm sm:text-base">No recent orders found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border text-xs text-muted-foreground">
-                  <th className="text-left pb-3">Order ID</th>
-                  <th className="text-left pb-3">Table No.</th>
-                  <th className="text-left pb-3">Items</th>
-                  <th className="text-left pb-3">Amount</th>
-                  <th className="text-left pb-3">Status</th>
-                  <th className="text-left pb-3">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order) => (
-                  <tr key={order.id} className="border-b border-border">
-                    <td className="py-3 pr-4 font-medium text-sm">
-                      {order.order_id}
-                    </td>
-                    <td className="py-3 pr-4 text-sm">
-                      {order.table_no || "N/A"}
-                    </td>
-                    <td className="py-3 pr-4 text-sm max-w-[180px] truncate">
-                      {order.items_text}
-                    </td>
-                    <td className="py-3 pr-4 text-sm">
-                      Rs. {parseFloat(order.total_amount).toFixed(2)}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          statusStyles[order.status] || "bg-gray-100"
-                        }`}
-                      >
-                        {formatStatus(order.status)}
-                      </span>
-                    </td>
-                    <td className="py-3 text-xs text-muted-foreground">
-                      {order.time_elapsed}
-                    </td>
+          <>
+            {/* Mobile view - Card layout */}
+            <div className="md:hidden space-y-3">
+              {orders.map((order) => (
+                <MobileOrderCard key={order.id} order={order} />
+              ))}
+            </div>
+
+            {/* Desktop view - Table layout */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border text-xs text-muted-foreground">
+                    <th className="text-left pb-3">Order ID</th>
+                    <th className="text-left pb-3">Table</th>
+                    <th className="text-left pb-3 hidden lg:table-cell">
+                      Items
+                    </th>
+                    <th className="text-left pb-3">Amount</th>
+                    <th className="text-left pb-3">Status</th>
+                    <th className="text-left pb-3 hidden xl:table-cell">
+                      Time
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {orders.map((order) => (
+                    <tr key={order.id} className="border-b border-border">
+                      <td className="py-3 pr-4 font-medium text-sm">
+                        {order.order_id}
+                      </td>
+                      <td className="py-3 pr-4 text-sm">
+                        {order.table_name || "N/A"} {/* Changed from table_no */}
+                      </td>
+                      <td className="py-3 pr-4 text-sm max-w-[120px] lg:max-w-[180px] truncate hidden lg:table-cell">
+                        {order.items_text}
+                      </td>
+                      <td className="py-3 pr-4 text-sm">
+                        Rs. {parseFloat(order.total_amount).toFixed(2)}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            statusStyles[order.status] || "bg-gray-100"
+                          }`}
+                        >
+                          {formatStatus(order.status)}
+                        </span>
+                      </td>
+                      <td className="py-3 text-xs text-muted-foreground hidden xl:table-cell">
+                        {order.time_elapsed}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         <div className="mt-4 text-right">
           <Link
             href="/dashboard/orders"
-            className="text-sm text-primary hover:underline"
+            className="text-sm text-primary hover:underline inline-block"
           >
             View all orders
           </Link>

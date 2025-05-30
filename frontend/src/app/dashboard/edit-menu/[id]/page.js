@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { use } from "react"; // Import use from React
 import { useAuth } from "@/context/AuthContext";
-import DashboardSidebar from "@/components/dashboard/Sidebar";
-import DashboardHeader from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,7 +18,6 @@ export default function EditMenuItem({ params }) {
   const { id } = unwrappedParams;
 
   const { user, token } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
@@ -32,7 +29,7 @@ export default function EditMenuItem({ params }) {
     description: "",
     category: "",
     is_available: true,
-    image_url: null
+    image_url: null,
   });
 
   // Track the new image file
@@ -48,13 +45,16 @@ export default function EditMenuItem({ params }) {
   const fetchMenuItem = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/menu/item/${id}/`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Token ${token}`,
-          "Content-Type": "application/json"
+      const response = await fetch(
+        `http://localhost:8000/api/menu/item/${id}/`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
+          },
         }
-      });
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch menu item");
@@ -74,9 +74,9 @@ export default function EditMenuItem({ params }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setMenuItem(prev => ({
+    setMenuItem((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -153,13 +153,16 @@ export default function EditMenuItem({ params }) {
         formData.append("image", newImage);
       }
 
-      const response = await fetch(`http://localhost:8000/api/menu/item/${id}/`, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Token ${token}`,
-        },
-        body: formData,
-      });
+      const response = await fetch(
+        `http://localhost:8000/api/menu/item/${id}/`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+          body: formData,
+        }
+      );
 
       const data = await response.json();
 
@@ -168,7 +171,9 @@ export default function EditMenuItem({ params }) {
         router.push("/dashboard/manage-menu");
       } else {
         const errorMessage = data.details
-          ? `Failed to update menu item: ${Array.isArray(data.details) ? data.details[0] : data.details}`
+          ? `Failed to update menu item: ${
+              Array.isArray(data.details) ? data.details[0] : data.details
+            }`
           : "Failed to update menu item. Please check your inputs.";
         toast.error(errorMessage);
       }
@@ -190,166 +195,150 @@ export default function EditMenuItem({ params }) {
   }, [imagePreview, menuItem.image_url]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardSidebar
-        isOpen={isSidebarOpen}
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-      />
+    <main className="p-4 md:p-6 space-y-6">
+      <div className="flex items-center mb-6">
+        <Button variant="ghost" onClick={() => router.back()} className="mr-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <h1 className="text-2xl md:text-3xl font-bold">Edit Menu Item</h1>
+      </div>
 
-      <div
-        className={`${
-          isSidebarOpen ? "lg:ml-64" : "lg:ml-20"
-        } transition-all duration-300`}
-      >
-        <DashboardHeader onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />
+      {isLoading ? (
+        <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      ) : (
+        <form
+          onSubmit={handleSubmit}
+          className="bg-card rounded-xl border border-border p-6"
+        >
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Item Name*</label>
+                <Input
+                  name="name"
+                  value={menuItem.name}
+                  onChange={handleChange}
+                  placeholder="e.g., Butter Chicken"
+                  required
+                />
+              </div>
 
-        <main className="p-4 md:p-6 space-y-6">
-          <div className="flex items-center mb-6">
-            <Button
-              variant="ghost"
-              onClick={() => router.back()}
-              className="mr-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <h1 className="text-2xl md:text-3xl font-bold">Edit Menu Item</h1>
+              <div>
+                <label className="text-sm font-medium">Price*</label>
+                <Input
+                  name="price"
+                  type="number"
+                  value={menuItem.price}
+                  onChange={handleChange}
+                  placeholder="e.g., 250"
+                  step="0.01"
+                  min="0"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Category*</label>
+                <Input
+                  name="category"
+                  value={menuItem.category}
+                  onChange={handleChange}
+                  placeholder="e.g., Main Course"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <Textarea
+                  name="description"
+                  value={menuItem.description}
+                  onChange={handleChange}
+                  placeholder="Describe your dish..."
+                  className="h-32"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium block mb-2">
+                  Item Image
+                </label>
+                <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
+                  {imagePreview ? (
+                    <div className="space-y-2">
+                      <div className="relative w-full aspect-video mx-auto">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="rounded-md object-cover w-full h-full"
+                        />
+                        <button
+                          type="button"
+                          onClick={removeImage}
+                          className="absolute top-2 right-2 bg-black/50 rounded-full p-1 hover:bg-black/70 transition-colors"
+                        >
+                          <X className="h-4 w-4 text-white" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleFileChange}
+                        aria-label="Upload image file"
+                      />
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={triggerFileSelect}
+                        type="button"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Image
+                      </Button>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        PNG, JPG up to 5MB
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {isLoading ? (
-            <div className="bg-card rounded-xl border border-border p-6 space-y-4">
-              <Skeleton className="h-8 w-1/3" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-8 w-1/3" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-8 w-1/3" />
-              <Skeleton className="h-32 w-full" />
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="bg-card rounded-xl border border-border p-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Item Name*</label>
-                    <Input 
-                      name="name" 
-                      value={menuItem.name} 
-                      onChange={handleChange}
-                      placeholder="e.g., Butter Chicken"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium">Price*</label>
-                    <Input 
-                      name="price"
-                      type="number"
-                      value={menuItem.price}
-                      onChange={handleChange}
-                      placeholder="e.g., 250"
-                      step="0.01"
-                      min="0"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium">Category*</label>
-                    <Input 
-                      name="category"
-                      value={menuItem.category}
-                      onChange={handleChange}
-                      placeholder="e.g., Main Course"
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Description</label>
-                    <Textarea
-                      name="description"
-                      value={menuItem.description}
-                      onChange={handleChange}
-                      placeholder="Describe your dish..."
-                      className="h-32"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium block mb-2">
-                      Item Image
-                    </label>
-                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
-                      {imagePreview ? (
-                        <div className="space-y-2">
-                          <div className="relative w-full aspect-video mx-auto">
-                            <img
-                              src={imagePreview}
-                              alt="Preview"
-                              className="rounded-md object-cover w-full h-full"
-                            />
-                            <button
-                              type="button"
-                              onClick={removeImage}
-                              className="absolute top-2 right-2 bg-black/50 rounded-full p-1 hover:bg-black/70 transition-colors"
-                            >
-                              <X className="h-4 w-4 text-white" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            className="hidden"
-                            onChange={handleFileChange}
-                            aria-label="Upload image file"
-                          />
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={triggerFileSelect}
-                            type="button"
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            Upload Image
-                          </Button>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            PNG, JPG up to 5MB
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex justify-end space-x-4 mt-8">
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  onClick={() => router.back()}
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit"
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
-                  disabled={isSaving}
-                >
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-            </form>
-          )}
-        </main>
-      </div>
-    </div>
+          <div className="flex justify-end space-x-4 mt-8">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              disabled={isSaving}
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </form>
+      )}
+    </main>
   );
 }
