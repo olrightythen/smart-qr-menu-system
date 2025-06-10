@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/context/AuthContext";
 import QuickStats from "@/components/dashboard/QuickStats";
 import RecentOrders from "@/components/dashboard/RecentOrders";
 import PopularItems from "@/components/dashboard/PopularItems";
@@ -10,6 +11,8 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 
 export default function Dashboard() {
+  const { user } = useAuth();
+
   return (
     <main className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between">

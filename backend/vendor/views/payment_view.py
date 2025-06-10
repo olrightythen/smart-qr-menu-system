@@ -8,6 +8,9 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from .payment_handler import EsewaPaymentHandler
 from ..models import Order
+from notifications.services import NotificationService
+from notifications.facade import notification_facade
+from notifications.utils import send_order_notification
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,6 +52,10 @@ class EsewaInitiatePaymentView(View):
 class EsewaPaymentVerifyView(View):
     # Use the same secret key as in payment handler
     SECRET_KEY = "8gBm/:&EnhH.1/q"
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.notification_service = NotificationService()
     
     def get(self, request):
         try:
@@ -126,7 +133,7 @@ class EsewaPaymentVerifyView(View):
     def _process_payment(self, transaction_uuid, status, total_amount, transaction_code):
         # Find the order by invoice number
         try:
-            order = Order.objects.get(invoice_no=transaction_uuid)
+            order = Order.objects.select_related('vendor', 'table').get(invoice_no=transaction_uuid)
         except Order.DoesNotExist:
             logger.error(f"Order not found with invoice number: {transaction_uuid}")
             return HttpResponseRedirect(f'http://localhost:3000/payment-result?status=failed&reason=order-not-found&invoice_no={transaction_uuid}')
@@ -158,8 +165,96 @@ class EsewaPaymentVerifyView(View):
         
         logger.info(f"Order {order.id} has been paid and verified. Transaction: {transaction_code}")
         
+        # SEND NOTIFICATIONS AFTER SUCCESSFUL PAYMENT
+        try:
+            self._send_payment_notifications(order, transaction_code)
+        except Exception as e:
+            logger.error(f"Failed to send notifications for order {order.id}: {e}")
+            # Don't fail the payment process if notifications fail
+        
         # Redirect to frontend with order ID
         return HttpResponseRedirect(f'http://localhost:3000/payment-result?status=success&order_id={order.id}&invoice_no={transaction_uuid}')
+    
+    def _send_payment_notifications(self, order, transaction_code):
+        """Send notifications after successful payment"""
+        notifications_sent = []
+        
+        # 1. Send payment success notification
+        try:
+            table_info = f"Table: {order.table.name}" if order.table else f"Table: {order.table_identifier or 'Unknown'}"
+            message = f"Payment received for Order #{order.id} ({table_info}) - Transaction: {transaction_code or 'N/A'}"
+            
+            self.notification_service.create_notification(
+                vendor=order.vendor,
+                title="Payment Received",
+                message=message,
+                notification_type="payment_success",
+                data={'order_id': order.id, 'transaction_code': transaction_code}
+            )
+            notifications_sent.append("payment_success")
+            logger.info(f"Payment success notification sent for order {order.id}")
+        except Exception as e:
+            logger.error(f"Failed to send payment success notification for order {order.id}: {e}")
+        
+        # 2. Send new order received notification
+        try:
+            items_summary = self._get_order_items_summary(order)
+            table_name = order.table.name if order.table else order.table_identifier or "Unknown Table"
+            
+            detailed_message = (
+                f"New Order Received!\n"
+                f"Order: ORD{order.id:03d}\n"
+                f"Table: {table_name}\n"
+                f"Items: {items_summary}\n"
+                f"Total: Rs. {order.total_amount}\n"
+                f"Payment: Paid via eSewa"
+            )
+            
+            self.notification_service.create_notification(
+                vendor=order.vendor,
+                title="New Order Received",
+                message=detailed_message,
+                notification_type="new_order",
+                data={'order_id': order.id, 'table_name': table_name, 'total_amount': str(order.total_amount)}
+            )
+            notifications_sent.append("new_order")
+            logger.info(f"New order received notification sent for order {order.id}")
+        except Exception as e:
+            logger.error(f"Failed to send new order notification for order {order.id}: {e}")
+        
+        # 3. Alternative: Use the utility function
+        try:
+            from notifications.utils import send_order_notification
+            send_order_notification(order.vendor, order, 'new_order')
+            notifications_sent.append("utility_notification")
+            logger.info(f"Utility new order notification sent for order {order.id}")
+        except Exception as e:
+            logger.error(f"Failed to send utility notification for order {order.id}: {e}")
+        
+        logger.info(f"Notifications sent for order {order.id}: {notifications_sent}")
+        return notifications_sent
+    
+    def _get_order_items_summary(self, order):
+        """Get a summary of order items for notification"""
+        try:
+            items = order.items.all().select_related('menu_item')
+            if not items.exists():
+                return "No items"
+            
+            items_list = []
+            for item in items[:3]:  # Show first 3 items
+                item_name = item.menu_item.name if item.menu_item else "Unknown Item"
+                items_list.append(f"{item.quantity}x {item_name}")
+            
+            summary = ", ".join(items_list)
+            
+            if items.count() > 3:
+                summary += f" and {items.count() - 3} more items"
+            
+            return summary
+        except Exception as e:
+            logger.error(f"Error getting items summary for order {order.id}: {e}")
+            return "Items unavailable"
         
     # Keep the post method as it was
     def post(self, request):

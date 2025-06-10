@@ -32,12 +32,12 @@ const testimonials = [
   },
   {
     id: 3,
-    name: "Anita Gurung",
-    role: "Cafe Manager",
+    name: "Laxmi Neupane",
+    role: "Hotel Manager",
     avatar:
-      "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=120&h=120&dpr=2",
+      "/images/laxmi-neupane.png", // Local image for Laxmi Neupane
     content:
-      "The personalized recommendations feature is fantastic! Our customers discover new items they might not have tried otherwise. The setup was straightforward and customer support has been excellent.",
+      "Our Neupane Hotel has seen a significant boost in customer satisfaction. The Smart QR Menu System is easy to use, and our guests love the convenience of ordering from their phones. The analytics dashboard helps us understand customer preferences better.",
     rating: 4,
   },
   {

@@ -7,6 +7,8 @@ import {
   CheckCircle,
   XCircle,
   MoreVertical,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +20,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const statusStyles = {
   pending: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
@@ -32,6 +36,7 @@ export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [updatingOrders, setUpdatingOrders] = useState(new Set());
   const [error, setError] = useState(null);
   const { user, token } = useAuth();
 
@@ -46,17 +51,23 @@ export default function Orders() {
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      setError(null);
+
       const response = await fetch(
         `http://localhost:8000/api/orders/${user.id}/`,
         {
           headers: {
             Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
           },
         }
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch orders: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Failed to fetch orders: ${response.status}`
+        );
       }
 
       const data = await response.json();
@@ -86,6 +97,9 @@ export default function Orders() {
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
+      // Add order to updating set
+      setUpdatingOrders((prev) => new Set([...prev, orderId]));
+
       const response = await fetch(
         `http://localhost:8000/api/orders/${orderId}/status/`,
         {
@@ -99,20 +113,34 @@ export default function Orders() {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to update order status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Failed to update order status: ${response.status}`
+        );
       }
 
+      const responseData = await response.json();
+
       // Update the local state with the new status
-      setOrders(
-        orders.map((order) =>
-          order.id === orderId ? { ...order, status: newStatus } : order
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === orderId
+            ? { ...order, status: responseData.status || newStatus }
+            : order
         )
       );
 
       toast.success(`Order ${orderId} marked as ${newStatus}`);
     } catch (err) {
       console.error("Error updating order status:", err);
-      toast.error("Failed to update order status");
+      toast.error(err.message || "Failed to update order status");
+    } finally {
+      // Remove order from updating set
+      setUpdatingOrders((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
     }
   };
 
@@ -121,7 +149,7 @@ export default function Orders() {
     const searchLower = searchTerm.toLowerCase();
     return (
       order.order_id?.toLowerCase().includes(searchLower) ||
-      order.table_name?.toLowerCase().includes(searchLower) || // Changed from table_no
+      order.table_name?.toLowerCase().includes(searchLower) ||
       order.status?.toLowerCase().includes(searchLower) ||
       order.items_text?.toLowerCase().includes(searchLower) ||
       order.items?.some((item) =>
@@ -138,9 +166,19 @@ export default function Orders() {
   return (
     <main className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-bold">Orders</h1>
-        <Button onClick={fetchOrders} disabled={loading}>
-          {loading ? "Loading..." : "Refresh"}
+        <div className="space-y-1">
+          <h1 className="text-2xl md:text-3xl font-bold">Orders</h1>
+          <p className="text-muted-foreground">
+            Manage your restaurant orders
+          </p>
+        </div>
+        <Button onClick={fetchOrders} disabled={loading} variant="outline">
+          {loading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          Refresh
         </Button>
       </div>
 
@@ -161,9 +199,10 @@ export default function Orders() {
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded dark:bg-grey-900 dark:text-red-400">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -171,34 +210,45 @@ export default function Orders() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left p-4">Order ID</th>
-                <th className="text-left p-4">Table</th>
-                <th className="text-left p-4">Items</th>
-                <th className="text-left p-4">Amount</th>
-                <th className="text-left p-4">Status</th>
-                <th className="text-left p-4">Time</th>
-                <th className="text-left p-4">Actions</th>
+                <th className="text-left p-4 font-medium">Order ID</th>
+                <th className="text-left p-4 font-medium">Table</th>
+                <th className="text-left p-4 font-medium">Items</th>
+                <th className="text-left p-4 font-medium">Amount</th>
+                <th className="text-left p-4 font-medium">Status</th>
+                <th className="text-left p-4 font-medium">Time</th>
+                <th className="text-left p-4 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8">
-                    <div className="w-10 h-10 border-4 border-t-primary border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mx-auto"></div>
-                    <p className="mt-2 text-muted-foreground">
-                      Loading orders...
-                    </p>
+                  <td colSpan={7} className="text-center py-12">
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                      <p className="text-muted-foreground">Loading orders...</p>
+                    </div>
                   </td>
                 </tr>
               ) : filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8">
-                    <p className="text-muted-foreground">No orders found</p>
+                  <td colSpan={7} className="text-center py-12">
+                    <div className="flex flex-col items-center gap-2">
+                      <Search className="h-12 w-12 text-muted-foreground" />
+                      <h3 className="text-lg font-medium">No orders found</h3>
+                      <p className="text-muted-foreground">
+                        {searchTerm
+                          ? "Try adjusting your search"
+                          : "Orders will appear here when customers place them"}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 filteredOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-border">
+                  <tr
+                    key={order.id}
+                    className="border-b border-border hover:bg-accent/50"
+                  >
                     <td className="p-4 font-medium">{order.order_id}</td>
                     <td className="p-4">{order.table_name || "N/A"}</td>
                     <td className="p-4">
@@ -210,26 +260,34 @@ export default function Orders() {
                         ))}
                       </div>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 font-medium">
                       Rs. {parseFloat(order.total_amount).toFixed(2)}
                     </td>
                     <td className="p-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          statusStyles[order.status] || "bg-gray-100"
+                          statusStyles[order.status] || "bg-gray-100 text-gray-800"
                         }`}
                       >
                         {formatStatus(order.status)}
                       </span>
                     </td>
-                    <td className="p-4 text-muted-foreground">
+                    <td className="p-4 text-sm text-muted-foreground">
                       {order.time_elapsed}
                     </td>
                     <td className="p-4">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={updatingOrders.has(order.id)}
+                          >
+                            {updatingOrders.has(order.id) ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <MoreVertical className="h-4 w-4" />
+                            )}
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -238,6 +296,7 @@ export default function Orders() {
                               updateOrderStatus(order.id, "confirmed")
                             }
                             disabled={
+                              updatingOrders.has(order.id) ||
                               order.status === "confirmed" ||
                               order.status === "completed" ||
                               order.status === "cancelled"
@@ -251,6 +310,7 @@ export default function Orders() {
                               updateOrderStatus(order.id, "completed")
                             }
                             disabled={
+                              updatingOrders.has(order.id) ||
                               order.status === "completed" ||
                               order.status === "cancelled"
                             }
@@ -263,6 +323,7 @@ export default function Orders() {
                               updateOrderStatus(order.id, "cancelled")
                             }
                             disabled={
+                              updatingOrders.has(order.id) ||
                               order.status === "completed" ||
                               order.status === "cancelled"
                             }

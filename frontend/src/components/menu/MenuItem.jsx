@@ -6,10 +6,6 @@ import React from "react";
 const MenuItem = ({ item, isPopular }) => {
   const { addToCart, recentlyAdded } = useCart();
 
-  const getImageWithFallback = (imageUrl) => {
-    return imageUrl || "/images/default-food-image.jpg";
-  };
-
   return (
     <div className="bg-card rounded-xl overflow-hidden border border-border hover:shadow-md transition-shadow">
       <div className="aspect-video relative">

@@ -51,6 +51,7 @@ export default function GenerateQR() {
   const [showDialog, setShowDialog] = useState(false);
   const [selectedTable, setSelectedTable] = useState(null);
   const [copyStatus, setCopyStatus] = useState({});
+  const [isClient, setIsClient] = useState(false);
 
   // New states for renaming functionality
   const [editingTable, setEditingTable] = useState(null);
@@ -65,6 +66,14 @@ export default function GenerateQR() {
 
   // Add a ref for the input element
   const inputRef = useRef(null);
+
+  // Check if we're on the client side
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Check if native sharing is available
+  const hasNativeShare = isClient && typeof navigator !== 'undefined' && 'share' in navigator;
 
   // Fetch tables from backend
   useEffect(() => {
@@ -175,7 +184,6 @@ export default function GenerateQR() {
     }
   };
 
-  // FIXED: Toggle table availability with better error handling
   const toggleTableAvailability = async (id, currentStatus) => {
     try {
       setIsTogglingAvailability(id);
@@ -203,7 +211,6 @@ export default function GenerateQR() {
 
       const data = await response.json();
 
-      // FIXED: Update the table in the state with proper data structure
       setTables(prevTables =>
         prevTables.map((table) =>
           table.id === id ? { ...table, is_active: data.table?.is_active ?? data.is_active } : table
@@ -221,22 +228,19 @@ export default function GenerateQR() {
     }
   };
 
-  // FIXED: Start editing table name with validation
   const startEditing = (table) => {
     if (isRenamingTable || editingTable) {
-      return; // Prevent starting edit if already editing or renaming
+      return;
     }
     setEditingTable(table.id);
     setEditName(table.name);
   };
 
-  // FIXED: Cancel editing with cleanup
   const cancelEditing = () => {
     setEditingTable(null);
     setEditName("");
   };
 
-  // FIXED: Save table name with better validation and error handling
   const saveTableName = async (id) => {
     const trimmedName = editName.trim();
     
@@ -253,12 +257,10 @@ export default function GenerateQR() {
     }
 
     if (trimmedName === currentTable.name) {
-      // No change, just cancel editing
       cancelEditing();
       return;
     }
 
-    // Check if name already exists (case-insensitive)
     const nameExists = tables.some(
       (table) => table.id !== id && table.name.toLowerCase() === trimmedName.toLowerCase()
     );
@@ -292,7 +294,6 @@ export default function GenerateQR() {
 
       const data = await response.json();
 
-      // FIXED: Update the table in the state with proper data structure
       setTables(prevTables =>
         prevTables.map((table) =>
           table.id === id ? { ...table, name: data.table?.name ?? data.name } : table
@@ -330,7 +331,6 @@ export default function GenerateQR() {
 
       const data = await response.json();
 
-      // Update the specific table with new QR code
       setTables(
         tables.map((table) =>
           table.id === id ? { ...table, qr_code: data.qr_code } : table
@@ -414,7 +414,7 @@ export default function GenerateQR() {
 
     const shareUrl = selectedTable.shareUrl;
 
-    if (navigator.share) {
+    if (hasNativeShare) {
       try {
         await navigator.share({
           title: `${user.restaurant_name || "Restaurant"} - ${
@@ -612,7 +612,7 @@ export default function GenerateQR() {
                 }`}
               >
                 <div className="flex items-center justify-between mb-4">
-                  {/* FIXED: Table Name with Edit Functionality */}
+                  {/* Table Name with Edit Functionality */}
                   <div className="flex items-center gap-2 flex-1">
                     {editingTable === table.id ? (
                       <div className="flex items-center gap-2 flex-1">
@@ -672,7 +672,6 @@ export default function GenerateQR() {
 
                   {/* Action Buttons */}
                   <div className="flex space-x-1">
-                    {/* FIXED: Availability Toggle */}
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -712,7 +711,6 @@ export default function GenerateQR() {
                       </Tooltip>
                     </TooltipProvider>
 
-                    {/* Regenerate QR */}
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -740,7 +738,6 @@ export default function GenerateQR() {
                       </Tooltip>
                     </TooltipProvider>
 
-                    {/* Delete Table */}
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -770,7 +767,6 @@ export default function GenerateQR() {
                   </div>
                 </div>
 
-                {/* FIXED: Availability Status Badge */}
                 <div className="mb-3">
                   <span
                     className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -796,7 +792,7 @@ export default function GenerateQR() {
                 <div className="aspect-square bg-white rounded-lg flex items-center justify-center p-4 mb-4">
                   <QRCodeCanvas
                     id={`qr-code-${table.id}`}
-                    value={getTableUrl(table)} // Uses qr_code only
+                    value={getTableUrl(table)}
                     size={180}
                     level={"H"}
                     includeMargin={true}
@@ -895,7 +891,8 @@ export default function GenerateQR() {
               onClick={handleShare}
             >
               <Share2 className="h-4 w-4 mr-2" />
-              {navigator.share ? "Share" : "Copy & Close"}
+              {/* FIXED: Check hasNativeShare instead of navigator.share directly */}
+              {hasNativeShare ? "Share" : "Copy & Close"}
             </Button>
           </DialogFooter>
         </DialogContent>

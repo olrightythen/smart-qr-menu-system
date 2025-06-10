@@ -3,8 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/context/AuthContext";
-
-
+ 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
@@ -18,10 +17,10 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-        <ThemeProvider>
-            <Toaster/>
+          <ThemeProvider>
+            <Toaster position="top-right" />
             <main>{children}</main>
-        </ThemeProvider>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>
