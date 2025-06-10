@@ -3,3 +3,5 @@ myvenv/
 *.pyc
 *.pyo
 media/
+*.sqlite3
+*.log

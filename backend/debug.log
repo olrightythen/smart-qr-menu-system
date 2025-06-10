@@ -1925,3 +1925,17 @@ WebSocket connection attempt for vendor 12
 WebSocket authentication successful for user 12
 WebSocket connection accepted for vendor 12
 WebSocket successfully connected for vendor 12
+WebSocket connection attempt for vendor 12
+WebSocket authentication successful for user 12
+WebSocket connection accepted for vendor 12
+WebSocket successfully connected for vendor 12
+Error creating notification: Object of type Order is not JSON serializable
+WebSocket notification sent to vendor 12
+Notification created: Payment Received for Paradise Resturant
+WebSocket notification sent to vendor 12
+Notification created: New Order Received for Paradise Resturant
+Created notification 12 for vendor 12
+Sent WebSocket notification to vendor 12
+Sent order notification for order 43 to vendor 12
+Notification 12 marked as read for vendor 12
+WebSocket disconnected for vendor 12 with code 1001
