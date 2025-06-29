@@ -8,11 +8,15 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
 from django.views import View
-from ..models import Order, OrderItem, Vendor, Table
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from ..models import Order, OrderItem, Vendor, Table, MenuItem
 from django.core.serializers import serialize
 from django.utils import timezone
 from notifications.facade import notification_facade
 from notifications.utils import send_order_notification
+from notifications.order_utils import send_order_update
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -187,21 +191,40 @@ class OrderListView(APIView):
             
             # Add order items
             for item_data in items_data:
-                menu_item_id = item_data.get('menu_item_id')
+                menu_item_id = item_data.get('id')
                 quantity = item_data.get('quantity', 1)
                 
-                OrderItem.objects.create(
-                    order=order,
-                    menu_item_id=menu_item_id,
-                    quantity=quantity
-                )
+                try:
+                    menu_item = MenuItem.objects.get(id=menu_item_id)
+                    OrderItem.objects.create(
+                        order=order,
+                        menu_item=menu_item,
+                        quantity=quantity,
+                        price=menu_item.price  # Use the current price
+                    )
+                except MenuItem.DoesNotExist:
+                    logger.warning(f"Menu item {menu_item_id} not found when creating order {order.id}")
             
             # Send notification for new order
             try:
-                send_order_notification(vendor, order, 'order')
+                from notifications.facade import notification_facade
+                notification_facade.send_new_order_notification(vendor, order)
                 logger.info(f"Sent new order notification for order {order.id}")
             except Exception as e:
                 logger.error(f"Failed to send order notification for order {order.id}: {e}")
+                logger.exception("Notification error details:")  # Log the full exception details
+                
+            # Send real-time update via WebSocket
+            try:
+                from notifications.order_utils import send_order_update
+                send_order_update(order.id)
+                logger.info(f"Sent WebSocket update for new order {order.id}")
+            except Exception as e:
+                logger.error(f"Failed to send WebSocket update for order {order.id}: {e}")
+                logger.exception("WebSocket error details:")  # Log the full exception details
+                logger.info(f"Sent WebSocket update for new order {order.id}")
+            except Exception as e:
+                logger.error(f"Failed to send WebSocket update for order {order.id}: {e}")
             
             return Response({
                 'order_id': order.id,
@@ -243,6 +266,8 @@ class OrderStatusUpdateView(APIView):
     def post(self, request, order_id):
         """Update order status"""
         try:
+            from ..models import Order  # Ensure Order is imported in the correct scope
+            
             vendor = request.user
             order = get_object_or_404(Order, id=order_id, vendor=vendor)
             
@@ -251,14 +276,125 @@ class OrderStatusUpdateView(APIView):
             
             if new_status and new_status != old_status:
                 order.status = new_status
-                order.save()
+                order.save(update_fields=['status'])
                 
                 # Send notification for status update
                 try:
-                    send_order_notification(vendor, order, 'order')
+                    from notifications.facade import notification_facade
+                    
+                    # Log to help debugging
+                    logger.info(f"Sending order status update notification: Order #{order.id} status: {old_status} -> {new_status}")
+                    
+                    # Send notification through the facade
+                    notification = notification_facade.send_order_status_update(vendor, order, old_status, new_status)
                     logger.info(f"Sent order status update notification for order {order.id}: {old_status} -> {new_status}")
+                    
+                    # Add notification ID to response for tracking
+                    notification_id = getattr(notification, 'id', None)
+                    if notification_id:
+                        logger.info(f"Notification ID for order status update: {notification_id}")
                 except Exception as e:
                     logger.error(f"Failed to send order status notification for order {order.id}: {e}")
+                    logger.exception("Full notification error details:")
+                
+                # Send real-time update through WebSocket - enhanced logging and retrying
+                try:
+                    from notifications.order_utils import send_order_update
+                    
+                    # Log order details before sending update
+                    logger.info(f"Order details before sending WebSocket update - ID: {order.id}, Status: {order.status}, "
+                                f"Vendor ID: {order.vendor.id}, Table: {order.table.name if order.table else 'None'}, "
+                                f"Table Identifier: {getattr(order, 'table_identifier', None)}")
+                    
+                    # Force a database refresh to ensure we're getting the most recent data
+                    order.refresh_from_db()
+                    
+                    # Format complete order data to ensure all required fields are present
+                    order_items = order.items.all().select_related('menu_item')
+                    items_data = [{
+                        "id": item.id,
+                        "name": item.menu_item.name if item.menu_item else "Unknown Item",
+                        "quantity": item.quantity,
+                        "price": float(item.price)
+                    } for item in order_items]
+                    
+                    # Create comprehensive order data
+                    order_data = {
+                        "id": order.id,
+                        "status": order.status,
+                        "vendor_id": order.vendor.id,
+                        "table_identifier": getattr(order, 'table_identifier', None),
+                        "qr_code": order.table.qr_code if order.table else None,
+                        "table_name": order.table.name if order.table else None,
+                        "items": items_data,
+                        "total": float(order.total_amount),
+                        "created_at": order.created_at.isoformat(),
+                        "updated_at": timezone.now().isoformat(),
+                        "server_timestamp": int(timezone.now().timestamp() * 1000),
+                        "message": f"Order {order.id} status is now {order.status}"
+                    }
+                    
+                    # Send the update with complete data
+                    logger.info(f"Sending WebSocket update for order {order.id}, new status: {new_status}")
+                    result = send_order_update(order.id, order_data)
+                    logger.info(f"Sent WebSocket update for order {order.id}, result: {result}")
+                    
+                    # If the first attempt failed, try again after a short delay
+                    if not result:
+                        import time
+                        time.sleep(0.5)  # 500ms delay
+                        logger.info(f"Retrying WebSocket update for order {order.id}")
+                        result = send_order_update(order.id, order_data)
+                        logger.info(f"WebSocket update retry result: {result}")
+                        
+                    # If both attempts failed, try one last time with a direct channel layer approach
+                    if not result:
+                        logger.warning(f"Multiple WebSocket update failures for order {order.id}, trying with direct message")
+                        from channels.layers import get_channel_layer
+                        from asgiref.sync import async_to_sync
+                        
+                        channel_layer = get_channel_layer()
+                        
+                        # Send to vendor channel
+                        vendor_channel = f'vendor_{order.vendor.id}'
+                        logger.info(f"Sending direct order_status to vendor channel: {vendor_channel}")
+                        async_to_sync(channel_layer.group_send)(
+                            vendor_channel,
+                            {
+                                'type': 'order_status',
+                                'data': order_data
+                            }
+                        )
+                        logger.info(f"Sent direct update to vendor channel {vendor_channel} with status: {order.status}")
+                        
+                        # Send to order-specific channel if table identifier exists
+                        if getattr(order, 'table_identifier', None):
+                            order_channel = f'order_{order.vendor.id}_{order.table_identifier}'
+                            logger.info(f"Sending direct order_status to table channel: {order_channel}")
+                            async_to_sync(channel_layer.group_send)(
+                                order_channel,
+                                {
+                                    'type': 'order_status',
+                                    'data': order_data
+                                }
+                            )
+                            logger.info(f"Sent direct update to table channel {order_channel}")
+                        
+                        # IMPORTANT: Send to order-specific tracking channel
+                        order_specific_channel = f'order_{order.id}'
+                        logger.info(f"Sending direct order_status_update to order-specific channel: {order_specific_channel}")
+                        async_to_sync(channel_layer.group_send)(
+                            order_specific_channel,
+                            {
+                                'type': 'order_status_update',
+                                'data': order_data
+                            }
+                        )
+                        logger.info(f"Sent direct update to order-specific channel {order_specific_channel}")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to send WebSocket update for order {order.id}: {e}")
+                    logger.exception("Full traceback:")  # Log full exception for debugging
                 
                 return Response({
                     'id': order.id,
@@ -322,16 +458,21 @@ class OrderDetailsView(View):
             table_name = self._resolve_table_name_for_details(order)
             
             response_data = {
+                "id": order.id,  # For frontend compatibility
                 "order_id": order.id,
                 "invoice_no": order.invoice_no,
                 "timestamp": order.created_at.isoformat(),
+                "created_at": order.created_at.isoformat(),  # For frontend compatibility
                 "status": order.status,
                 "payment_status": order.payment_status,
                 "table_name": table_name,
                 "table_id": order.table.id if order.table else None,
+                "table_identifier": getattr(order, 'table_identifier', None),  # For frontend compatibility
                 "qr_code": str(order.table.qr_code) if order.table else order.table_identifier,
                 "total_amount": float(order.total_amount),
-                "transaction_id": order.transaction_id,
+                "transaction_id": getattr(order, 'transaction_id', None),
+                "vendor_id": order.vendor.id,  # For frontend compatibility
+                "vendor_name": order.vendor.restaurant_name,  # For frontend compatibility
                 "items": items_data,
                 "vendor": vendor_data
             }
@@ -377,3 +518,336 @@ class OrderCreationMixin:
             logger.info(f"New order notification sent for order {order.id}")
         except Exception as e:
             logger.error(f"Failed to send new order notification for order {order.id}: {e}")
+
+
+class TrackOrderView(View):
+    """API endpoint for customers to track an order"""
+    
+    def get(self, request):
+        """Get order details for tracking"""
+        try:
+            # Get order_id from query parameters
+            order_id = request.GET.get('order_id')
+            
+            if not order_id:
+                return JsonResponse({"error": "Order ID is required"}, status=400)
+            
+            try:
+                order = Order.objects.select_related('table', 'vendor').get(id=order_id)
+            except Order.DoesNotExist:
+                return JsonResponse({"error": "Order not found"}, status=404)
+            
+            # Get order items
+            order_items = order.items.all().select_related('menu_item')
+            
+            # Format items data
+            items_data = []
+            for item in order_items:
+                menu_item_name = item.menu_item.name if item.menu_item else "Unknown Item"
+                items_data.append({
+                    "id": item.id,
+                    "name": menu_item_name,
+                    "quantity": item.quantity,
+                    "price": str(item.price)
+                })
+              # Calculate time elapsed
+            time_elapsed = self._get_time_elapsed(order.created_at)
+            
+            # Get table name
+            table_name = "Table"  # Default fallback
+            if order.table and order.table.name:
+                table_name = order.table.name
+            elif order.table_identifier:
+                table_name = order.table_identifier
+            # If no table info available, keep default "Table"
+            
+            # Calculate estimated time based on status and time elapsed
+            estimated_time = self._calculate_estimated_time(order.status, order.created_at)
+            
+            # Format response
+            response_data = {
+                "id": order.id,
+                "order_id": order.id,
+                "status": order.status,
+                "total_amount": str(order.total_amount),
+                "total": str(order.total_amount),
+                "created_at": order.created_at.isoformat(),
+                "timestamp": order.created_at.isoformat(),
+                "updated_at": order.updated_at.isoformat(),
+                "time_elapsed": time_elapsed,
+                "estimated_time": estimated_time,
+                "estimatedTime": estimated_time,
+                "table_identifier": order.table_identifier,
+                "table_name": table_name,
+                "table_id": order.table.id if order.table else None,
+                "vendor_id": order.vendor.id,
+                "vendor_name": order.vendor.restaurant_name,
+                "payment_status": order.payment_status,
+                "items": items_data,
+                "restaurant": {
+                    "id": order.vendor.id,
+                    "name": order.vendor.restaurant_name,
+                    "phone": order.vendor.phone if hasattr(order.vendor, 'phone') and order.vendor.phone else None,
+                    "contact": order.vendor.phone if hasattr(order.vendor, 'phone') and order.vendor.phone else None,
+                }
+            }
+            
+            return JsonResponse(response_data)
+            
+        except Exception as e:
+            logger.error(f"Error tracking order: {e}")
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    def _get_time_elapsed(self, created_at):
+        """Calculate and format time elapsed since order creation"""
+        now = timezone.now()
+        diff = now - created_at
+        
+        minutes = int(diff.total_seconds() // 60)
+        hours = minutes // 60
+        days = hours // 24
+        
+        if days > 0:
+            return f"{days} day{'s' if days > 1 else ''} ago"
+        elif hours > 0:
+            return f"{hours} hour{'s' if hours > 1 else ''} ago"
+        elif minutes > 0:
+            return f"{minutes} min{'s' if minutes > 1 else ''} ago"
+        else:
+            return "Just now"
+    
+    def _calculate_estimated_time(self, status, created_at):
+        """Calculate estimated time based on status and time elapsed"""
+        # For completed/cancelled/rejected orders
+        if status in ['completed', 'cancelled', 'rejected']:
+            return status.capitalize()
+        
+        # For ready orders
+        if status == 'ready':
+            return "Ready now"
+        
+        # For active orders, calculate remaining time
+        now = timezone.now()
+        elapsed_minutes = int((now - created_at).total_seconds() // 60)
+        
+        # Base time estimates by status
+        base_times = {
+            'pending': 10,
+            'accepted': 20,
+            'confirmed': 20,
+            'preparing': 15,
+        }
+        
+        base_time = base_times.get(status, 20)
+        remaining = max(0, base_time - elapsed_minutes)
+        
+        if remaining <= 0:
+            return "Almost ready"
+        elif remaining <= 5:
+            return f"{remaining}-{remaining + 2} minutes"
+        else:
+            return f"{remaining}-{remaining + 5} minutes"
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class CreateOrderView(View):
+    """API endpoint to create orders before payment"""
+    
+    def post(self, request):
+        """Create a new order without payment"""
+        try:
+            data = json.loads(request.body)
+            items = data.get("items", [])
+            vendor_id = data.get("vendor_id")
+            table_identifier = data.get("table_identifier")
+            
+            if not items:
+                return JsonResponse({"error": "No items provided"}, status=400)
+                
+            if not vendor_id:
+                return JsonResponse({"error": "Vendor ID required"}, status=400)
+            
+            # Get vendor
+            try:
+                vendor = Vendor.objects.get(id=vendor_id)
+            except Vendor.DoesNotExist:
+                return JsonResponse({"error": "Vendor not found"}, status=404)
+            
+            # Get table if identifier provided
+            table = None
+            table_name = "Table"
+            if table_identifier:
+                try:
+                    table = Table.objects.get(vendor=vendor, qr_code=table_identifier)
+                    table_name = table.name
+                except Table.DoesNotExist:
+                    table_name = table_identifier
+            
+            # Validate and get menu items
+            item_ids = [item["id"] for item in items]
+            menu_items = MenuItem.objects.filter(
+                id__in=item_ids, 
+                vendor=vendor, 
+                is_available=True
+            )
+            
+            if len(menu_items) != len(item_ids):
+                return JsonResponse({"error": "Some items are not available"}, status=400)
+            
+            # Create menu items lookup
+            menu_items_dict = {item.id: item for item in menu_items}
+            
+            # Calculate total
+            total_amount = 0
+            for item_data in items:
+                menu_item = menu_items_dict[item_data["id"]]
+                total_amount += float(menu_item.price) * item_data["quantity"]
+            
+            # Create order
+            invoice_no = f"INV{int(timezone.now().timestamp())}"
+            order = Order.objects.create(
+                vendor=vendor,
+                table=table,
+                table_identifier=table_identifier,
+                invoice_no=invoice_no,
+                status="pending",  # Pending vendor acceptance
+                payment_status="pending",
+                total_amount=total_amount
+            )
+            
+            # Create order items
+            logger.info(f"Processing {len(items)} items for order #{order.id}")
+            created_items = []
+            
+            for item_data in items:
+                try:
+                    menu_item = menu_items_dict[item_data["id"]]
+                    order_item = OrderItem.objects.create(
+                        order=order,
+                        menu_item=menu_item,
+                        quantity=item_data["quantity"],
+                        price=menu_item.price
+                    )
+                    created_items.append({
+                        "name": menu_item.name,
+                        "quantity": item_data["quantity"],
+                        "price": str(menu_item.price),
+                        "item_id": menu_item.id
+                    })
+                    logger.info(f"Created order item: {menu_item.name} (x{item_data['quantity']}) for order #{order.id}")
+                except Exception as e:
+                    logger.error(f"Error creating order item for {item_data}: {e}")
+            
+            logger.info(f"Created {len(created_items)} order items for order #{order.id}")
+            
+            # Refresh the order to ensure it includes all items
+            order.refresh_from_db()
+            
+            # Send notification to vendor about new order
+            try:
+                from notifications.facade import notification_facade
+                
+                # Send new order notification using the notification service
+                notification = notification_facade.send_new_order_notification(vendor, order)
+                logger.info(f"Sent new order notification for order {order.id}")
+                
+                # Send WebSocket update
+                try:
+                    from notifications.order_utils import send_order_update
+                    send_order_update(order.id)
+                    logger.info(f"Sent WebSocket update for order {order.id}")
+                except Exception as e:
+                    logger.error(f"Failed to send WebSocket update for order {order.id}: {e}")
+                    logger.exception("WebSocket error details:")
+            except Exception as e:
+                logger.error(f"Failed to send new order notification: {e}")
+            
+            # Store order info in response for frontend to save in localStorage
+            order_info = {
+                "id": order.id,
+                "status": order.status,
+                "timestamp": order.created_at.isoformat(),
+                "total": str(total_amount),
+                "vendor_id": vendor.id,
+                "table_identifier": table_identifier,
+                "table_name": table_name
+            }
+            
+            return JsonResponse({
+                "success": True,
+                "order": order_info,
+                "message": "Order created successfully. Waiting for restaurant confirmation."
+            })
+            
+        except Exception as e:
+            logger.error(f"Error creating order: {e}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+class OrderStatusView(APIView):
+    """API endpoint to get order status"""
+    
+    def get(self, request, order_id):
+        """Get order status"""
+        try:
+            from ..models import Order
+            
+            order = get_object_or_404(Order, id=order_id)
+            
+            # Get items for this order
+            items = order.items.all().select_related('menu_item')
+            
+            items_data = [{
+                'id': item.id,
+                'name': item.menu_item.name if item.menu_item else "Deleted Item",
+                'price': float(item.price),
+                'quantity': item.quantity,
+            } for item in items]
+            
+            # Enhanced table name resolution
+            table_name = self._resolve_table_name(order)
+            
+            # Complete order information
+            order_data = {
+                'id': order.id,
+                'order_id': order.id,  # For frontend compatibility
+                'status': order.status,
+                'payment_status': order.payment_status,
+                'total_amount': str(order.total_amount),
+                'created_at': order.created_at.isoformat(),
+                'timestamp': order.created_at.isoformat(),  # For frontend compatibility
+                'updated_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else None,
+                'table_name': table_name,
+                'table_id': order.table.id if order.table else None,
+                'vendor_id': order.vendor.id,
+                'vendor_name': order.vendor.name if hasattr(order.vendor, 'name') else "Restaurant",
+                'table_identifier': getattr(order, 'table_identifier', None),
+                'invoice_no': getattr(order, 'invoice_no', None),
+                'transaction_id': getattr(order, 'transaction_id', None),
+                'items': items_data,
+            }
+            
+            return Response(order_data)
+            
+        except Exception as e:
+            logger.error(f"Error fetching order status: {e}")
+            return Response({
+                'error': 'Failed to fetch order status'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _resolve_table_name(self, order):
+        """Table name resolution for order status"""
+        try:
+            # Use the linked table if it exists
+            if order.table and order.table.id:
+                return order.table.name
+            
+            # Fallback to stored identifier
+            if hasattr(order, 'table_identifier') and order.table_identifier:
+                return f"Table {order.table_identifier}"
+            
+            # Final fallback
+            return "Unknown Table"
+            
+        except Exception as e:
+            logger.error(f"Error resolving table name for order {order.id}: {e}")
+            return "Unknown Table"

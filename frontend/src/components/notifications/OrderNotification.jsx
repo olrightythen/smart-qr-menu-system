@@ -5,6 +5,7 @@ import { CheckCircle, XCircle, Eye, Clock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
+import { getApiBaseUrl } from "@/hooks/useWebSocket";
 
 const OrderNotification = ({ notification, onClose, onAction }) => {
   const [isVisible, setIsVisible] = useState(true);
@@ -13,6 +14,20 @@ const OrderNotification = ({ notification, onClose, onAction }) => {
   const { token } = useAuth();
 
   const orderData = notification.data;
+
+  // Ensure items is always an array, even if it came as a JSON string
+  useEffect(() => {
+    if (orderData?.items && typeof orderData.items === "string") {
+      try {
+        // Parse JSON string to array
+        orderData.items = JSON.parse(orderData.items);
+        console.log("Parsed items JSON string to array:", orderData.items);
+      } catch (error) {
+        console.error("Error parsing items JSON string:", error);
+        orderData.items = []; // Fallback to empty array
+      }
+    }
+  }, [orderData]);
 
   useEffect(() => {
     if (!isPinned && timeLeft > 0) {
@@ -32,8 +47,23 @@ const OrderNotification = ({ notification, onClose, onAction }) => {
 
   const handleOrderAction = async (action) => {
     try {
+      // Get the API base URL
+      const apiBaseUrl = getApiBaseUrl();
+
+      // Get the order ID from the notification data
+      const order_id = orderData?.order_id;
+
+      if (!order_id) {
+        console.error("Missing order_id in notification data:", orderData);
+        toast.error("Cannot update order: missing order ID");
+        return;
+      }
+
+      console.log(`Updating order ${order_id} status to ${action}`);
+
+      // Note: Use the correct endpoint for updating order status
       const response = await fetch(
-        `http://localhost:8000/api/orders/${orderData.order_id}/status/`,
+        `${apiBaseUrl}/api/orders/${order_id}/update-status/`,
         {
           method: "POST",
           headers: {
@@ -45,22 +75,42 @@ const OrderNotification = ({ notification, onClose, onAction }) => {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to update order status");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            `Failed to update order status: ${response.status}`
+        );
       }
 
-      toast.success(
-        `Order ${action === "confirmed" ? "accepted" : "rejected"} successfully`
-      );
-      onAction?.(orderData.order_id, action);
+      const data = await response.json();
+      console.log("Order status update response:", data);
+
+      // We're not showing toasts here to avoid duplicates with the dashboard
+      // The dashboard/orders page will show toasts for status updates
+      console.log(`Order #${order_id} successfully updated to ${action}`);
+
+      // Call the onAction callback with order ID and action
+      onAction?.(order_id, action);
+
+      // Close the notification
       handleClose();
     } catch (error) {
       console.error("Error updating order status:", error);
-      toast.error("Failed to update order status");
+      toast.error(`Failed to update order status: ${error.message}`);
     }
   };
 
   const handleViewOrder = () => {
-    window.open(`/dashboard/orders?highlight=${orderData.order_id}`, "_blank");
+    // Make sure we have a valid order_id
+    if (orderData?.order_id) {
+      window.open(
+        `/dashboard/orders?highlight=${orderData.order_id}`,
+        "_blank"
+      );
+    } else {
+      console.error("Missing order_id in notification data:", orderData);
+      toast.error("Cannot view order: missing order ID");
+    }
     handleClose();
   };
 
@@ -113,25 +163,34 @@ const OrderNotification = ({ notification, onClose, onAction }) => {
         <div className="space-y-2 mb-4">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium">
-              Order #{orderData.order_id}
+              Order #{orderData?.order_id || "Unknown"}
             </span>
             <span className="text-sm text-muted-foreground">
-              Table: {orderData.table_name || "N/A"}
+              Table: {orderData?.table_name || "N/A"}
             </span>
           </div>
 
           <div className="text-sm text-muted-foreground">
             <span className="font-medium">Items:</span>
             <div className="mt-1">
-              {orderData.items?.slice(0, 3).map((item, index) => (
-                <div key={index} className="text-xs">
-                  {item.quantity}x {item.name}
-                </div>
-              ))}
-              {orderData.items?.length > 3 && (
-                <div className="text-xs text-muted-foreground">
-                  +{orderData.items.length - 3} more items
-                </div>
+              {orderData?.items &&
+              Array.isArray(orderData.items) &&
+              orderData.items.length > 0 ? (
+                <>
+                  {orderData.items.slice(0, 3).map((item, index) => (
+                    <div key={index} className="text-xs">
+                      {item.quantity}x {item.name || "Unnamed Item"} - Rs.{" "}
+                      {parseFloat(item.price || 0).toFixed(2)}
+                    </div>
+                  ))}
+                  {orderData.items.length > 3 && (
+                    <div className="text-xs text-muted-foreground">
+                      +{orderData.items.length - 3} more items
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-xs">No items in this order</div>
               )}
             </div>
           </div>
@@ -139,7 +198,7 @@ const OrderNotification = ({ notification, onClose, onAction }) => {
           <div className="flex justify-between items-center pt-2 border-t border-border">
             <span className="text-sm font-medium">Total:</span>
             <span className="text-sm font-semibold">
-              Rs. {parseFloat(orderData.total_amount || 0).toFixed(2)}
+              Rs. {parseFloat(orderData?.total_amount || 0).toFixed(2)}
             </span>
           </div>
         </div>
@@ -147,7 +206,7 @@ const OrderNotification = ({ notification, onClose, onAction }) => {
         {/* Action Buttons */}
         <div className="flex space-x-2">
           <Button
-            onClick={() => handleOrderAction("confirmed")}
+            onClick={() => handleOrderAction("accepted")}
             size="sm"
             className="flex-1 bg-green-500 hover:bg-green-600 text-white"
           >
@@ -155,7 +214,7 @@ const OrderNotification = ({ notification, onClose, onAction }) => {
             Accept
           </Button>
           <Button
-            onClick={() => handleOrderAction("cancelled")}
+            onClick={() => handleOrderAction("rejected")}
             variant="destructive"
             size="sm"
             className="flex-1"

@@ -16,6 +16,7 @@ import {
   ChevronRight,
   PlusSquare,
   Menu,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -26,6 +27,7 @@ const navItems = [
   { icon: FileEdit, label: "Manage Menu", href: "/dashboard/manage-menu" },
   { icon: QrCode, label: "Generate QR", href: "/dashboard/qr-code" },
   { icon: ShoppingBag, label: "Orders", href: "/dashboard/orders" },
+  { icon: Bell, label: "Notifications", href: "/dashboard/notifications" },
   // { icon: Star, label: 'Reviews', href: '/dashboard/reviews' },
   // { icon: Tag, label: 'Offers', href: '/dashboard/offers' },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },
@@ -37,9 +39,7 @@ const NavItem = ({ icon: Icon, label, href, isActive, isOpen }) => (
     href={href}
     className={cn(
       "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
-      isActive
-        ? "bg-accent text-orange-500"
-        : "text-muted-foreground"
+      isActive ? "bg-accent text-orange-500" : "text-muted-foreground"
     )}
     aria-label={!isOpen ? label : undefined}
   >
@@ -50,11 +50,7 @@ const NavItem = ({ icon: Icon, label, href, isActive, isOpen }) => (
 
 // Memoized toggle button component
 const ToggleButton = ({ isOpen, onToggle, className, ariaLabel }) => (
-  <button
-    onClick={onToggle}
-    className={className}
-    aria-label={ariaLabel}
-  >
+  <button onClick={onToggle} className={className} aria-label={ariaLabel}>
     {className.includes("lg:flex") ? (
       <ChevronRight
         className={cn(
@@ -89,23 +85,28 @@ export default function DashboardSidebar({ isOpen, onToggle }) {
   );
 
   // Memoize navigation items with active state
-  const navigationItems = useMemo(() => 
-    navItems.map(item => ({
-      ...item,
-      isActive: isActive(item.href)
-    })), 
+  const navigationItems = useMemo(
+    () =>
+      navItems.map((item) => ({
+        ...item,
+        isActive: isActive(item.href),
+      })),
     [isActive]
   );
 
   // Memoize sidebar classes - Fixed positioning for mobile, relative for desktop
-  const sidebarClasses = useMemo(() => cn(
-    // Mobile: fixed overlay, Desktop: relative in layout
-    "lg:relative fixed top-0 left-0 h-full bg-card border-r border-border z-50 transition-all duration-300",
-    isOpen ? "w-64" : "w-20",
-    // Mobile transforms
-    "transform lg:transform-none",
-    isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-  ), [isOpen]);
+  const sidebarClasses = useMemo(
+    () =>
+      cn(
+        // Mobile: fixed overlay, Desktop: relative in layout
+        "lg:relative fixed top-0 left-0 h-full bg-card border-r border-border z-50 transition-all duration-300",
+        isOpen ? "w-64" : "w-20",
+        // Mobile transforms
+        "transform lg:transform-none",
+        isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      ),
+    [isOpen]
+  );
 
   return (
     <>
@@ -118,11 +119,15 @@ export default function DashboardSidebar({ isOpen, onToggle }) {
         />
       )}
 
-      <aside className={sidebarClasses} role="navigation" aria-label="Main navigation">
+      <aside
+        className={sidebarClasses}
+        role="navigation"
+        aria-label="Main navigation"
+      >
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-          <Link 
-            href="/dashboard" 
+          <Link
+            href="/dashboard"
             className="flex items-center space-x-3 min-w-0"
             aria-label="Smart Menu Dashboard"
           >
@@ -131,7 +136,7 @@ export default function DashboardSidebar({ isOpen, onToggle }) {
               <span className="font-bold text-xl truncate">Smart Menu</span>
             )}
           </Link>
-          
+
           <ToggleButton
             isOpen={isOpen}
             onToggle={onToggle}

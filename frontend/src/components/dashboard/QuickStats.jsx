@@ -14,7 +14,7 @@ export default function QuickStats() {
   const {
     totalOrders,
     activeItems,
-    totalCustomers,
+    totalTables,
     totalRevenue,
     isLoading,
     error,
@@ -37,8 +37,8 @@ export default function QuickStats() {
       bg: "bg-green-100 dark:bg-green-900/20",
     },
     {
-      label: "Customers",
-      value: isLoading ? "-" : totalCustomers.toString(),
+      label: "Tables",
+      value: isLoading ? "-" : totalTables.toString(),
       color: "text-purple-500",
       icon: Users,
       bg: "bg-purple-100 dark:bg-purple-900/20",

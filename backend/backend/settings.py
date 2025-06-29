@@ -118,22 +118,27 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 
-# Allow WebSocket connections from frontend
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only in development
-
-# Allow credentials for WebSocket authentication
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+# Allow all headers for WebSockets to work properly
 CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "sec-websocket-protocol",
+    "sec-websocket-version",
+    "sec-websocket-extensions",
+    "sec-websocket-key",
 ]
 
 REST_FRAMEWORK = {

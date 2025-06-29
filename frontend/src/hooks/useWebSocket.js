@@ -1,6 +1,31 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 
+// Helper function to get the API base URL
+export const getApiBaseUrl = () => {
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:8000";
+  } else {
+    // In production, use the same host but with http/https protocol
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:8000`;
+  }
+};
+
+// Helper function to get WebSocket base URL
+export const getWsBaseUrl = () => {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+
+  if (process.env.NODE_ENV === "development") {
+    return `${protocol}//localhost:8000`;
+  } else {
+    // In production, use the same host
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:8000`;
+  }
+};
+
 export const useWebSocket = (onMessage) => {
   const [connectionStatus, setConnectionStatus] = useState("Disconnected");
   const [messageHistory, setMessageHistory] = useState([]);
@@ -12,11 +37,30 @@ export const useWebSocket = (onMessage) => {
   const onMessageRef = useRef(onMessage);
   const pingIntervalRef = useRef(null);
   const isConnectingRef = useRef(false);
+  const lastMessageTimeRef = useRef(Date.now());
 
   // Update the onMessage ref when it changes
   useEffect(() => {
     onMessageRef.current = onMessage;
   }, [onMessage]);
+
+  // This function checks if the connection is stale
+  const checkConnectionHealth = useCallback(() => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      const now = Date.now();
+      const timeSinceLastMessage = now - lastMessageTimeRef.current;
+
+      // If no message received in 2 minutes, consider the connection stale
+      if (timeSinceLastMessage > 120000) {
+        console.warn(
+          `WebSocket connection may be stale. Last message was ${timeSinceLastMessage}ms ago.`
+        );
+        // Force a reconnection
+        disconnect();
+        setTimeout(connect, 1000);
+      }
+    }
+  }, []);
 
   const startPingInterval = useCallback(() => {
     if (pingIntervalRef.current) {
@@ -31,9 +75,12 @@ export const useWebSocket = (onMessage) => {
             timestamp: Date.now(),
           })
         );
+
+        // Check connection health each time we send a ping
+        checkConnectionHealth();
       }
     }, 30000); // Ping every 30 seconds
-  }, []);
+  }, [checkConnectionHealth]);
 
   const stopPingInterval = useCallback(() => {
     if (pingIntervalRef.current) {
@@ -70,12 +117,12 @@ export const useWebSocket = (onMessage) => {
         ws.current = null;
       }
 
-      // Create WebSocket URL - ensure proper format
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//localhost:8000/ws/notifications/${user.id}/?token=${token}`;
+      // Create WebSocket URL using helper function
+      const wsBaseUrl = getWsBaseUrl();
+      const wsUrl = `${wsBaseUrl}/ws/notifications/${user.id}/?token=${token}`;
+      console.log(`Attempting to connect to WebSocket at ${wsUrl}`);
 
       setConnectionStatus("Connecting");
-      console.log(`Attempting WebSocket connection to: ${wsUrl}`);
 
       ws.current = new WebSocket(wsUrl);
 
@@ -88,8 +135,17 @@ export const useWebSocket = (onMessage) => {
         console.log("WebSocket connected successfully", event);
       };
 
+      ws.current.onerror = (error) => {
+        console.error("WebSocket connection error:", error);
+        // The error event doesn't provide much info, the connection will close with an error code
+        // which will be handled in onclose
+      };
+
       ws.current.onmessage = (event) => {
         try {
+          // Update last message time for connection health check
+          lastMessageTimeRef.current = Date.now();
+
           const data = JSON.parse(event.data);
           console.log("WebSocket message received:", data);
 
@@ -211,8 +267,13 @@ export const useWebSocket = (onMessage) => {
       console.error("Error creating WebSocket connection:", error);
       setConnectionStatus("Error");
     }
-  }, [user?.id, token, startPingInterval, stopPingInterval]);
-
+  }, [
+    user?.id,
+    token,
+    startPingInterval,
+    stopPingInterval,
+    checkConnectionHealth,
+  ]);
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -221,6 +282,9 @@ export const useWebSocket = (onMessage) => {
 
     stopPingInterval();
     isConnectingRef.current = false;
+
+    // Reset the last message time reference when disconnecting
+    lastMessageTimeRef.current = Date.now();
 
     if (ws.current) {
       ws.current.close(1000, "Intentional disconnect");

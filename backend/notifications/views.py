@@ -170,6 +170,18 @@ class NotificationBulkActionsView(APIView):
                     'deleted_count': deleted_count
                 })
                 
+            elif action == 'clear_all':
+                # Delete all notifications for the vendor
+                deleted_count, _ = Notification.objects.filter(
+                    vendor=vendor
+                ).delete()
+                
+                logger.info(f"Cleared all {deleted_count} notifications for vendor {vendor.id}")
+                return Response({
+                    'message': f'Cleared all {deleted_count} notifications',
+                    'deleted_count': deleted_count
+                })
+                
             else:
                 return Response({
                     'error': 'Invalid action'

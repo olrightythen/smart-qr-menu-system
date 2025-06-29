@@ -70,7 +70,11 @@ class MenuItem(models.Model):
 class Order(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
         ('confirmed', 'Confirmed'),
+        ('rejected', 'Rejected'),
+        ('preparing', 'Preparing'),
+        ('ready', 'Ready for Pickup'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     )

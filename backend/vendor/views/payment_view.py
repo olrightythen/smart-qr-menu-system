@@ -9,8 +9,6 @@ from django.views.decorators.csrf import csrf_exempt
 from .payment_handler import EsewaPaymentHandler
 from ..models import Order
 from notifications.services import NotificationService
-from notifications.facade import notification_facade
-from notifications.utils import send_order_notification
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,9 +21,24 @@ class EsewaInitiatePaymentView(View):
             print("Payment initiation request received:", request.body)
             
             data = json.loads(request.body)
+            order_id = data.get("order_id")
+            
+            # Handle existing order case
+            if order_id:
+                try:
+                    # Try to get the existing order and create payment for it
+                    order = Order.objects.get(id=order_id)
+                    handler = EsewaPaymentHandler(order_id=order_id)
+                    response_data = handler.get_response_data()
+                    print("Payment response data:", response_data)
+                    return JsonResponse(response_data)
+                except Order.DoesNotExist:
+                    return HttpResponseBadRequest(f"Order with ID {order_id} not found")
+            
+            # Handle new order creation (legacy path)
             items = data.get("items")
             vendor_id = data.get("vendor_id")
-            table_identifier = data.get("table_identifier")  # Changed from table_no
+            table_identifier = data.get("table_identifier")
             
             if not items:
                 return HttpResponseBadRequest("Missing items")
@@ -33,7 +46,7 @@ class EsewaInitiatePaymentView(View):
             if not vendor_id:
                 return HttpResponseBadRequest("Missing vendor ID")
 
-            handler = EsewaPaymentHandler(items, vendor_id, table_identifier)  # Changed parameter
+            handler = EsewaPaymentHandler(items=items, vendor_id=vendor_id, table_identifier=table_identifier)
             response_data = handler.get_response_data()
             # Log response for debugging
             print("Payment response data:", response_data)
@@ -158,6 +171,7 @@ class EsewaPaymentVerifyView(View):
             return HttpResponseRedirect(f'http://localhost:3000/payment-result?status=failed&reason=amount-mismatch&invoice_no={transaction_uuid}')
             
         # Update order status
+        old_status = order.status
         order.payment_status = "paid"
         order.status = "confirmed"
         order.transaction_id = transaction_code
@@ -165,15 +179,22 @@ class EsewaPaymentVerifyView(View):
         
         logger.info(f"Order {order.id} has been paid and verified. Transaction: {transaction_code}")
         
+        # Send real-time update through WebSocket
+        try:
+            from notifications.order_utils import send_order_update
+            send_order_update(order.id)
+            logger.info(f"Sent WebSocket update for order {order.id} status change: {old_status} -> confirmed")
+        except Exception as e:
+            logger.error(f"Failed to send WebSocket update for order {order.id}: {e}")
+        
         # SEND NOTIFICATIONS AFTER SUCCESSFUL PAYMENT
         try:
             self._send_payment_notifications(order, transaction_code)
         except Exception as e:
             logger.error(f"Failed to send notifications for order {order.id}: {e}")
             # Don't fail the payment process if notifications fail
-        
-        # Redirect to frontend with order ID
-        return HttpResponseRedirect(f'http://localhost:3000/payment-result?status=success&order_id={order.id}&invoice_no={transaction_uuid}')
+          # Redirect to payment result page with order ID
+        return HttpResponseRedirect(f'http://localhost:3000/payment-result?status=success&orderId={order.id}&invoice_no={transaction_uuid}')
     
     def _send_payment_notifications(self, order, transaction_code):
         """Send notifications after successful payment"""

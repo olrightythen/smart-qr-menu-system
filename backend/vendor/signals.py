@@ -9,12 +9,9 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender=Order)
 def order_created_notification(sender, instance, created, **kwargs):
     """Send notification when a new order is created"""
-    if created:
-        try:
-            notification_facade.send_new_order_notification(instance.vendor, instance)
-            logger.info(f"New order notification sent for order {instance.id}")
-        except Exception as e:
-            logger.error(f"Failed to send new order notification for order {instance.id}: {e}")
+    # This signal is now disabled because notifications are handled in CreateOrderView
+    # to avoid duplicate notifications. Do not re-enable without checking for duplicates.
+    pass
 
 @receiver(pre_save, sender=Order)
 def order_status_changed_notification(sender, instance, **kwargs):
@@ -36,7 +33,20 @@ def order_status_updated_notification(sender, instance, created, **kwargs):
     """Send notification when order status is updated"""
     if not created and hasattr(instance, '_old_status'):
         try:
-            notification_facade.send_order_status_notification(instance.vendor, instance)
+            # Send notification
+            notification_facade.send_order_status_update(
+                instance.vendor, 
+                instance, 
+                instance._old_status, 
+                instance.status
+            )
             logger.info(f"Status update notification sent for order {instance.id}")
+            
+            # Also send real-time WebSocket update specifically for order tracking
+            from notifications.order_utils import send_order_update
+            result = send_order_update(instance.id)
+            logger.info(f"WebSocket order update sent for order {instance.id}, result: {result}")
+            
         except Exception as e:
             logger.error(f"Failed to send status update notification for order {instance.id}: {e}")
+            logger.exception("Full signal error traceback:")

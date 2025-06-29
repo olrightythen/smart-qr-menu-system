@@ -3,9 +3,10 @@ from .views.auth_view import VendorRegisterView, VendorLoginView
 from .views.menu_view import CreateMenuView, MenuItemListView, MenuItemDetailView, ToggleMenuItemAvailabilityView
 from .views.menu_view import PublicMenuView
 from .views.payment_view import EsewaPaymentVerifyView, EsewaInitiatePaymentView
-from .views.order_view import OrderListView, OrderStatusUpdateView, OrderDetailsView
+from .views.order_view import OrderListView, OrderStatusUpdateView, OrderDetailsView, TrackOrderView, CreateOrderView, OrderStatusView
 from .views.table_view import TableListView, TableCreateView, TableDeleteView, TableRegenerateQRView
 from .views.table_view import TableToggleAvailabilityView, TableRenameView, PublicTableStatusView
+from .views.active_orders_view import ActiveOrdersView
 # Import other views
 from .views.dashboard_view import (
     DashboardStatsView, 
@@ -24,19 +25,21 @@ urlpatterns = [
     # Vendor Profile URLs
     path('vendor/<int:vendor_id>/', VendorProfileView.as_view(), name='vendor-profile'),
     path('vendor/<int:vendor_id>/update/', VendorProfileUpdateView.as_view(), name='vendor-profile-update'),
+    path('vendor/<int:vendor_id>/active-orders/', ActiveOrdersView.as_view(), name='active-orders'),
 
     # Vendor Menu URLs
     path('menu/create/<int:vendor_id>/', CreateMenuView.as_view(), name='create-menu'),
     path('menu/list/<int:vendor_id>/', MenuItemListView.as_view(), name='list_menu'),
     path('menu/item/<int:item_id>/', MenuItemDetailView.as_view(), name='menu_item_detail'),
     path('menu/toggle/<int:item_id>/', ToggleMenuItemAvailabilityView.as_view(), name='toggle_menu_item'),
-    path('public-menu/<int:vendor_id>/', PublicMenuView.as_view(), name='public_menu'),
-
-    # Order URLs
+    path('public-menu/<int:vendor_id>/', PublicMenuView.as_view(), name='public_menu'),    # Order URLs
+    path('orders/create/', CreateOrderView.as_view(), name='create_order'),
+    path('orders/<int:order_id>/status/', OrderStatusView.as_view(), name='order_status_check'),
     path('orders/<int:vendor_id>/', OrderListView.as_view(), name='order_list'),
-    path('orders/<int:order_id>/status/', OrderStatusUpdateView.as_view(), name='order_status_update'),
+    path('orders/<int:order_id>/update-status/', OrderStatusUpdateView.as_view(), name='order_status_update'),
     path('order/<int:order_id>/', OrderDetailsView.as_view(), name='order_details'),
     path('order/', OrderDetailsView.as_view(), name='order_details_by_invoice'),
+    path('track-order/', TrackOrderView.as_view(), name='track_order'),
 
     # Table endpoints
     path('vendor/<int:vendor_id>/tables/', TableListView.as_view(), name='table-list'),
@@ -62,4 +65,7 @@ urlpatterns = [
     path('menu/<int:vendor_id>/recommendations/', MenuRecommendationsView.as_view(), name='menu-recommendations'),
     path('menu/<int:vendor_id>/search/', MenuSearchView.as_view(), name='menu-search'),
     path('menu/<int:vendor_id>/sort/', MenuSortView.as_view(), name='menu-sort'),
+
+    # Active orders view
+    path('vendor/<int:vendor_id>/active-orders/', ActiveOrdersView.as_view(), name='active-orders'),
 ]

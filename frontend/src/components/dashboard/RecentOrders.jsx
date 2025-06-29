@@ -1,17 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationContext";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import Link from "next/link";
+import ConnectionStatus from "@/components/dashboard/ConnectionStatus";
 
 const statusStyles = {
-  pending: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  confirmed:
+  pending:
+    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  accepted: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  confirmed: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400",
+  rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  preparing:
     "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+  ready:
+    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
   completed:
     "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
+
+// Get base API URL - moved outside component
+const getApiBaseUrl = () => {
+  return (
+    process.env.NEXT_PUBLIC_API_URL ||
+    (process.env.NODE_ENV === "development"
+      ? "http://localhost:8000"
+      : `${window.location.protocol}//${window.location.hostname}:8000`)
+  );
 };
 
 export default function RecentOrders() {
@@ -21,40 +39,14 @@ export default function RecentOrders() {
   const { user, token } = useAuth();
   const { notifications } = useNotifications();
 
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+  // Define fetchRecentOrders first so it can be used in the WebSocket handler
+  const fetchRecentOrders = useCallback(async () => {
+    if (!user?.id || !token) return;
 
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  useEffect(() => {
-    if (user?.id && token) {
-      fetchRecentOrders();
-    } else {
-      setLoading(false);
-    }
-  }, [user, token]);
-
-  // Auto-refresh orders when new order notifications are received
-  useEffect(() => {
-    const newOrderNotifications = notifications.filter(
-      (n) => n.type === "new_order" && !n.read
-    );
-
-    if (newOrderNotifications.length > 0 && user?.id && token) {
-      fetchRecentOrders();
-    }
-  }, [notifications, user?.id, token]);
-
-  const fetchRecentOrders = async () => {
     try {
       setLoading(true);
       const response = await fetch(
-        `http://localhost:8000/api/orders/${user.id}/`,
+        `${getApiBaseUrl()}/api/orders/${user.id}/`,
         {
           headers: {
             Authorization: `Token ${token}`,
@@ -66,10 +58,12 @@ export default function RecentOrders() {
 
       const data = await response.json();
 
-      // Process the data to add items_text
+      // Process the data to add items_text with defensive handling for missing items
       const processedOrders = data.orders.map((order) => ({
         ...order,
-        items_text: order.items.map((item) => item.name).join(", "),
+        items_text: Array.isArray(order.items)
+          ? order.items.map((item) => item.name || "Unnamed Item").join(", ")
+          : "No items",
       }));
 
       // Only take the 5 most recent orders
@@ -79,19 +73,96 @@ export default function RecentOrders() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, token]);
+
+  // Custom message handler for WebSocket messages
+  const handleWebSocketMessage = useCallback(
+    (data) => {
+      // Extract the actual notification data, handling both direct and nested formats
+      const notificationData =
+        data.type === "vendor_notification" && data.data ? data.data : data;
+
+      const notificationType = notificationData.type;
+
+      // Handle different notification types
+      if (
+        notificationType === "new_order" ||
+        notificationType === "order_status"
+      ) {
+        console.log(
+          `RecentOrders: Received ${notificationType} notification, refreshing orders`
+        );
+        fetchRecentOrders();
+      }
+    },
+    [fetchRecentOrders]
+  );
+
+  // Connect to WebSocket for real-time updates
+  const { connectionStatus } = useWebSocket(handleWebSocketMessage);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Load orders on mount and when user/token changes
+  useEffect(() => {
+    fetchRecentOrders();
+  }, [fetchRecentOrders]);
+
+  // Auto-refresh orders when new order notifications are received
+  useEffect(() => {
+    const newOrderNotifications = notifications.filter(
+      (n) => n.type === "new_order" && !n.read
+    );
+
+    if (newOrderNotifications.length > 0) {
+      fetchRecentOrders();
+    }
+  }, [notifications, fetchRecentOrders]);
 
   // Format the status for display
   const formatStatus = (status) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
+    switch (status) {
+      case "pending":
+        return "Pending";
+      case "accepted":
+        return "Accepted";
+      case "confirmed":
+        return "Confirmed";
+      case "rejected":
+        return "Rejected";
+      case "preparing":
+        return "Preparing";
+      case "ready":
+        return "Ready for Pickup";
+      case "completed":
+        return "Completed";
+      case "cancelled":
+        return "Cancelled";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
   };
 
   // Check if order is newly received (within last 5 minutes)
   const isNewOrder = (timestamp) => {
-    const orderTime = new Date(timestamp);
-    const now = new Date();
-    const diffInMinutes = (now - orderTime) / (1000 * 60);
-    return diffInMinutes <= 5;
+    if (!timestamp) return false;
+    try {
+      const orderTime = new Date(timestamp);
+      const now = new Date();
+      const diffInMinutes = (now - orderTime) / (1000 * 60);
+      return diffInMinutes <= 5;
+    } catch (error) {
+      console.error("Error parsing timestamp:", error);
+      return false;
+    }
   };
 
   // Mobile card view
@@ -129,7 +200,7 @@ export default function RecentOrders() {
         <div>
           <span className="text-muted-foreground">Amount:</span>
           <span className="ml-1 font-medium">
-            Rs. {parseFloat(order.total_amount).toFixed(2)}
+            Rs. {parseFloat(order.total_amount || 0).toFixed(2)}
           </span>
         </div>
       </div>
@@ -148,9 +219,12 @@ export default function RecentOrders() {
       <div className="p-3 sm:p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg sm:text-xl font-semibold">Recent Orders</h2>
-          {loading && (
-            <div className="w-4 h-4 border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" />
-          )}
+          <div className="flex items-center gap-2">
+            <ConnectionStatus status={connectionStatus} />
+            {loading && (
+              <div className="w-4 h-4 border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" />
+            )}
+          </div>
         </div>
 
         {loading ? (
@@ -217,7 +291,7 @@ export default function RecentOrders() {
                         {order.items_text}
                       </td>
                       <td className="py-3 pr-4 text-sm">
-                        Rs. {parseFloat(order.total_amount).toFixed(2)}
+                        Rs. {parseFloat(order.total_amount || 0).toFixed(2)}
                       </td>
                       <td className="py-3 pr-4">
                         <span

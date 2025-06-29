@@ -35,13 +35,15 @@ export const NotificationProvider = ({ children }) => {
 
       try {
         // Validate required fields
-        if (!data || !data.title || typeof data.title !== 'string') {
+        if (!data || !data.title || typeof data.title !== "string") {
           console.warn("Invalid notification data received:", data);
           return;
         }
 
         const notification = {
-          id: data.id || `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id:
+            data.id ||
+            `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           type: data.type || "info",
           title: data.title,
           message: data.message || "",
@@ -53,15 +55,22 @@ export const NotificationProvider = ({ children }) => {
 
         setNotifications((prev) => {
           // Check if notification already exists to prevent duplicates
-          const exists = prev.some((n) => 
-            n.id === notification.id || 
-            (n.title === notification.title && 
-             n.message === notification.message && 
-             Math.abs(new Date(n.created_at || n.timestamp) - new Date(notification.created_at)) < 5000)
+          const exists = prev.some(
+            (n) =>
+              n.id === notification.id ||
+              (n.title === notification.title &&
+                n.message === notification.message &&
+                Math.abs(
+                  new Date(n.created_at || n.timestamp) -
+                    new Date(notification.created_at)
+                ) < 5000)
           );
-          
+
           if (exists) {
-            console.log("Duplicate notification detected, skipping:", notification.id);
+            console.log(
+              "Duplicate notification detected, skipping:",
+              notification.id
+            );
             return prev;
           }
 
@@ -79,20 +88,35 @@ export const NotificationProvider = ({ children }) => {
           );
         } else if (data.type === "payment") {
           toast.success(
-            `💰 Payment received for order #${data.data?.order_id || "Unknown"}`,
+            `💰 Payment received for order #${
+              data.data?.order_id || "Unknown"
+            }`,
             {
               duration: 4000,
               icon: "💳",
             }
           );
         } else if (data.type === "order_status") {
-          toast.info(
-            `📋 Order #${data.data?.order_id || "Unknown"} status updated`,
-            {
-              duration: 4000,
-              icon: "📋",
-            }
-          );
+          // Suppress status update toasts when on the orders page
+          const isOnOrdersPage =
+            typeof window !== "undefined" &&
+            window.location.pathname.includes("/dashboard/orders");
+
+          // Only show toast if not on orders page to avoid duplicates
+          if (!isOnOrdersPage) {
+            toast(
+              `📋 Order #${data.data?.order_id || "Unknown"} status updated`,
+              {
+                duration: 4000,
+                icon: "📋",
+              }
+            );
+          } else {
+            console.log(
+              "Suppressed order status toast on orders page:",
+              data.data?.order_id
+            );
+          }
         }
 
         // Play notification sound
@@ -129,19 +153,19 @@ export const NotificationProvider = ({ children }) => {
     if (!user?.id || !token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/notifications/', {
+      const response = await fetch("http://localhost:8000/api/notifications/", {
         headers: {
-          'Authorization': `Token ${token}`,
+          Authorization: `Token ${token}`,
         },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         const serverNotifications = data.notifications || [];
         setNotifications(serverNotifications);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error("Error fetching notifications:", error);
     }
   }, [user?.id, token]);
 
@@ -152,25 +176,24 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [user?.id, token, fetchNotifications]);
 
-  const addNotification = useCallback(
-    (notification) => {
-      try {
-        const newNotification = {
-          id: notification.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          timestamp: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          read: false,
-          type: "info",
-          ...notification,
-        };
+  const addNotification = useCallback((notification) => {
+    try {
+      const newNotification = {
+        id:
+          notification.id ||
+          `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        read: false,
+        type: "info",
+        ...notification,
+      };
 
-        setNotifications((prev) => [newNotification, ...prev.slice(0, 49)]);
-      } catch (error) {
-        console.error("Error adding notification:", error);
-      }
-    },
-    []
-  );
+      setNotifications((prev) => [newNotification, ...prev.slice(0, 49)]);
+    } catch (error) {
+      console.error("Error adding notification:", error);
+    }
+  }, []);
 
   const markAsRead = useCallback(
     async (notificationId) => {
@@ -184,13 +207,16 @@ export const NotificationProvider = ({ children }) => {
         );
 
         if (token) {
-          await fetch(`http://localhost:8000/api/notifications/${notificationId}/`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Token ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
+          await fetch(
+            `http://localhost:8000/api/notifications/${notificationId}/`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Token ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
         }
       } catch (error) {
         console.error("Error marking notification as read:", error);
@@ -206,13 +232,13 @@ export const NotificationProvider = ({ children }) => {
       );
 
       if (token) {
-        await fetch('http://localhost:8000/api/notifications/bulk-actions/', {
-          method: 'POST',
+        await fetch("http://localhost:8000/api/notifications/bulk-actions/", {
+          method: "POST",
           headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ action: 'mark_all_read' }),
+          body: JSON.stringify({ action: "mark_all_read" }),
         });
       }
     } catch (error) {
@@ -228,12 +254,15 @@ export const NotificationProvider = ({ children }) => {
         );
 
         if (token) {
-          await fetch(`http://localhost:8000/api/notifications/${notificationId}/`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Token ${token}`,
-            },
-          });
+          await fetch(
+            `http://localhost:8000/api/notifications/${notificationId}/`,
+            {
+              method: "DELETE",
+              headers: {
+                Authorization: `Token ${token}`,
+              },
+            }
+          );
         }
       } catch (error) {
         console.error("Error removing notification:", error);
@@ -247,13 +276,13 @@ export const NotificationProvider = ({ children }) => {
       setNotifications([]);
 
       if (token) {
-        await fetch('http://localhost:8000/api/notifications/bulk-actions/', {
-          method: 'POST',
+        await fetch("http://localhost:8000/api/notifications/bulk-actions/", {
+          method: "POST",
           headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ action: 'clear_all' }),
+          body: JSON.stringify({ action: "clear_all" }),
         });
       }
     } catch (error) {

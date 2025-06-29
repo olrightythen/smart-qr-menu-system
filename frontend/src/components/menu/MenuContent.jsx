@@ -6,6 +6,12 @@ import {
   Sparkles,
   ShoppingCart,
   ChevronDown,
+  Package,
+  Clock,
+  CheckCircle,
+  X,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +27,8 @@ import Cart, { MobileCartButton } from "@/components/menu/Cart";
 import { useCart } from "@/context/CartContext";
 import RecommendationItem from "@/components/menu/RecommendationItem";
 import MenuItem from "@/components/menu/MenuItem";
+import Link from "next/link";
+import { useTheme } from "../ThemeProvider";
 
 const MenuContent = ({
   categories,
@@ -34,8 +42,8 @@ const MenuContent = ({
   fetchMenuData,
   isLoadingRecommendations,
 }) => {
-  const { cart } = useCart();
-
+  const { cart, pendingOrder, isConnected } = useCart();
+  const { theme, toggleTheme } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -43,6 +51,56 @@ const MenuContent = ({
   const [sortOrder, setSortOrder] = useState("desc");
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [isSorting, setIsSorting] = useState(false);
+  const [showOrderNotification, setShowOrderNotification] = useState(false);
+
+  // Check for pending orders and show notification - dependent only on pendingOrder updates from WebSocket
+  useEffect(() => {
+    if (
+      pendingOrder &&
+      (pendingOrder.status === "pending" || pendingOrder.status === "accepted")
+    ) {
+      console.log(
+        "MenuContent: Setting showOrderNotification to true for status:",
+        pendingOrder.status
+      );
+      setShowOrderNotification(true);
+
+      // No need to explicitly check via API as pendingOrder will be updated via WebSocket
+      if (pendingOrder.status === "accepted") {
+        // Generate a unique toast ID for this status update
+        const toastKey = `order-${pendingOrder.id}-${pendingOrder.status}`;
+        const toastId = `${toastKey}-menu-${Date.now()}`;
+
+        // Check if we've shown this exact status update before (in the last 30 seconds)
+        // Increased from 5 to 30 seconds to prevent duplicate toasts across page navigations
+        const lastShown = localStorage.getItem(`last_toast_${toastKey}`);
+        const shouldShow =
+          !lastShown || Date.now() - parseInt(lastShown) > 30000;
+
+        if (shouldShow) {
+          // Save this toast's timestamp
+          localStorage.setItem(`last_toast_${toastKey}`, Date.now().toString());
+
+          toast.success(
+            "Your order has been accepted and is ready for payment!",
+            {
+              id: toastId,
+              duration: 4000,
+            }
+          );
+
+          // Set global flag that we just showed a toast
+          window._lastToastTime = Date.now();
+        }
+      }
+    } else {
+      console.log(
+        "MenuContent: Setting showOrderNotification to false, pendingOrder:",
+        pendingOrder
+      );
+      setShowOrderNotification(false);
+    }
+  }, [pendingOrder]);
 
   const filteredItems = menuItems.filter((item) => {
     const matchesCategory =
@@ -228,10 +286,95 @@ const MenuContent = ({
             )}
           </div>
 
-          {/* Cart Component */}
-          <Cart vendorId={vendor} tableNo={tabel_identifier} />
-        </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={toggleTheme}
+              variant="ghost"
+              size="icon"
+              className="transition-colors"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/order-tracking">
+                <Package className="h-4 w-4 mr-2" />
+                Track Order
+              </Link>
+            </Button>
+            {/* Cart Component */}
+            <Cart vendorId={vendor} tableNo={tabel_identifier} />
+          </div>
+        </div>{" "}
       </header>
+
+      {/* Order Status Notification */}
+      {showOrderNotification && pendingOrder && (
+        <div
+          className={`border-b ${
+            pendingOrder.status === "pending"
+              ? "bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800"
+              : "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800"
+          }`}
+        >
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                {pendingOrder.status === "pending" ? (
+                  <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-3" />
+                ) : (
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mr-3" />
+                )}
+                <div>
+                  <p
+                    className={`font-medium ${
+                      pendingOrder.status === "pending"
+                        ? "text-yellow-800 dark:text-yellow-200"
+                        : "text-green-800 dark:text-green-200"
+                    }`}
+                  >
+                    {pendingOrder.status === "pending"
+                      ? "Order Submitted - Waiting for Approval"
+                      : "Order Approved - Ready for Payment!"}
+                  </p>
+                  <p
+                    className={`text-sm ${
+                      pendingOrder.status === "pending"
+                        ? "text-yellow-700 dark:text-yellow-300"
+                        : "text-green-700 dark:text-green-300"
+                    }`}
+                  >
+                    {" "}
+                    Order #{pendingOrder.id} • Total: Rs. {pendingOrder.total}
+                    {pendingOrder.status === "accepted" &&
+                      " • Click cart to pay"}{" "}
+                    {isConnected && (
+                      <span className="ml-2 text-green-600 dark:text-green-400">
+                        • Real-time
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowOrderNotification(false)}
+                className={`${
+                  pendingOrder.status === "pending"
+                    ? "text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-200"
+                    : "text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200"
+                }`}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search and Controls */}
       <div className="container mx-auto px-4 py-6">
@@ -377,7 +520,6 @@ const MenuContent = ({
             )}
           </div>
         )}
-
         {/* Main Menu Items */}
         {filteredItems.length === 0 ? (
           <div className="text-center py-12 bg-card rounded-xl border border-border p-8">
@@ -397,14 +539,14 @@ const MenuContent = ({
               />
             ))}
           </div>
-        )}
+        )}{" "}
       </div>
 
       {/* Add the mobile cart button at the bottom */}
-      {/* <div className="md:hidden">
-        <MobileCartButton vendorId={vendor} tableNo={tabel_no} />
+      <div className="md:hidden">
+        <MobileCartButton vendorId={vendor} tableNo={tabel_identifier} />
         <div className="pb-20"></div>
-      </div> */}
+      </div>
     </div>
   );
 };

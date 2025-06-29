@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
-import { X, Bell, Check, Trash2, CheckCheck } from "lucide-react";
+import { X, Bell, Check, Trash2, CheckCheck, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export const NotificationPanel = ({
   notifications,
@@ -114,6 +115,17 @@ export const NotificationPanel = ({
               <Trash2 className="h-3 w-3 mr-1" />
               Clear All
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="text-xs h-7 text-blue-500 hover:text-blue-700"
+            >
+              <Link href="/dashboard/notifications">
+                <ExternalLink className="h-3 w-3 mr-1" />
+                View All
+              </Link>
+            </Button>
           </div>
         </div>
       )}
@@ -123,10 +135,18 @@ export const NotificationPanel = ({
         {notifications.length === 0 ? (
           <div className="p-6 text-center">
             <Bell className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">No notifications yet</p>
-            <p className="text-muted-foreground/70 text-xs mt-1">
+            <p className="text-muted-foreground text-sm">
+              No notifications yet
+            </p>
+            <p className="text-muted-foreground/70 text-xs mt-1 mb-4">
               You'll see order updates and alerts here
             </p>
+            <Button variant="outline" size="sm" asChild className="text-xs">
+              <Link href="/dashboard/notifications">
+                <ExternalLink className="h-3 w-3 mr-1" />
+                View All Notifications
+              </Link>
+            </Button>
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -159,7 +179,9 @@ export const NotificationPanel = ({
                         {/* Additional data display for order notifications */}
                         {notification.data &&
                           notification.type === "new_order" &&
-                          notification.data.items && (
+                          notification.data.items &&
+                          Array.isArray(notification.data.items) &&
+                          notification.data.items.length > 0 && (
                             <div className="mt-2 text-xs text-muted-foreground">
                               <span className="font-medium">Items: </span>
                               {notification.data.items

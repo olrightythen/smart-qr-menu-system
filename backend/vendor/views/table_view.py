@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from rest_framework.authentication import TokenAuthentication
 import logging
-from ..models import Table
+from ..models import Table, Order
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 
@@ -69,12 +69,23 @@ class PublicTableStatusView(APIView):
             else:
                 logger.warning(f"Table {table.id} does not have is_active attribute")
             
+            # Check for active orders at this table
+            active_order = Order.objects.filter(
+                table=table,
+                status__in=['pending', 'accepted', 'confirmed', 'preparing']
+            ).first()
+            
+            has_active_order = active_order is not None
+            active_order_id = active_order.id if active_order else None
+            
             response_data = {
                 "table_id": table.id,
                 "name": table.name,
                 "qr_code": table.qr_code,
                 "is_active": is_active,
-                "vendor_id": table.vendor_id
+                "vendor_id": table.vendor_id,
+                "has_active_order": has_active_order,
+                "active_order_id": active_order_id
             }
             
             logger.info(f"Returning table data: {response_data}")

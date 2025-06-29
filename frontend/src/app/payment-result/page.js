@@ -8,21 +8,26 @@ import {
   Clock,
   Download,
   Share2,
+  Receipt,
+  Home,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
+import { getApiBaseUrl } from "@/hooks/useWebSocket";
 
 export default function PaymentResult() {
   const [countdown, setCountdown] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
+  const [menuUrl, setMenuUrl] = useState("/menu");
 
   const searchParams = useSearchParams();
   const status = searchParams.get("status") || "failed";
-  const orderId = searchParams.get("order_id");
+  const orderId = searchParams.get("orderId") || searchParams.get("order_id");
   const invoiceNo = searchParams.get("invoice_no");
   const reason = searchParams.get("reason");
 
@@ -55,29 +60,81 @@ export default function PaymentResult() {
     );
   }
 
-  // Fetch order details
+  // Fetch order details when component mounts
   useEffect(() => {
     const fetchOrderDetails = async () => {
       try {
-        setLoading(true);
-
-        if (!orderId && !invoiceNo) {
-          throw new Error("No order identifier provided");
+        // Get menu URL from localStorage
+        const lastMenuUrl = localStorage.getItem("last_menu_url");
+        if (lastMenuUrl) {
+          setMenuUrl(lastMenuUrl);
         }
 
-        const orderUrl = orderId
-          ? `http://localhost:8000/api/order/${orderId}/`
-          : `http://localhost:8000/api/order/?invoice_no=${invoiceNo}`;
+        if (orderId) {
+          // Fetch order details by order ID
+          const apiBaseUrl = getApiBaseUrl();
+          const response = await fetch(
+            `${apiBaseUrl}/api/orders/${orderId}/status/`
+          );
 
-        const response = await fetch(orderUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch order: ${response.status}`);
+          if (response.ok) {
+            const data = await response.json();
+            setOrderDetails({
+              ...data,
+              order_id: data.id,
+              vendor: {
+                id: data.vendor_id,
+                name: "Restaurant", // Default name, will be updated if available
+              },
+              qr_code: data.table_identifier,
+              table_name: data.table_name || `Table ${data.table_identifier}`,
+            });
+
+            // Update menu URL if vendor info is available
+            if (data.vendor_id && data.table_identifier) {
+              const newMenuUrl = `/menu/${data.vendor_id}/${encodeURIComponent(
+                data.table_identifier
+              )}`;
+              setMenuUrl(newMenuUrl);
+              localStorage.setItem("last_menu_url", newMenuUrl);
+            }
+          } else {
+            setError("Failed to fetch order details");
+          }
+        } else if (invoiceNo) {
+          // Fetch order details by invoice number
+          const apiBaseUrl = getApiBaseUrl();
+          const response = await fetch(
+            `${apiBaseUrl}/api/order/?invoice_no=${invoiceNo}`
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            setOrderDetails({
+              ...data,
+              vendor: {
+                id: data.vendor_id,
+                name: data.vendor_name || "Restaurant",
+              },
+              qr_code: data.table_identifier,
+              table_name: data.table_name || `Table ${data.table_identifier}`,
+            });
+
+            // Update menu URL if vendor info is available
+            if (data.vendor_id && data.table_identifier) {
+              const newMenuUrl = `/menu/${data.vendor_id}/${encodeURIComponent(
+                data.table_identifier
+              )}`;
+              setMenuUrl(newMenuUrl);
+              localStorage.setItem("last_menu_url", newMenuUrl);
+            }
+          } else {
+            setError("Failed to fetch order details");
+          }
         }
-
-        const orderData = await response.json();
-        setOrderDetails(orderData);
-      } catch (error) {
-        setError(error.message);
+      } catch (err) {
+        console.error("Error fetching order details:", err);
+        setError("Failed to load order information");
       } finally {
         setLoading(false);
       }
@@ -96,7 +153,7 @@ export default function PaymentResult() {
 
   // Auto-redirect logic
   useEffect(() => {
-    if (!loading && orderDetails) {
+    if (!loading && orderDetails && orderDetails.vendor) {
       const redirectDelay = status === "success" ? countdown * 1000 : 3000;
 
       if ((status === "success" && countdown === 0) || status === "failed") {
@@ -112,6 +169,42 @@ export default function PaymentResult() {
                 `clear_cart_${vendorId}_${tableIdentifier}`,
                 "true"
               );
+
+              // Store the order info in localStorage for tracking
+              const orderInfo = {
+                id: orderDetails.order_id || orderDetails.id,
+                invoice: orderDetails.invoice_no,
+                status: orderDetails.status,
+                timestamp: orderDetails.timestamp,
+                stored_at: new Date().toISOString(),
+              };
+
+              // Get existing orders from localStorage
+              const existingOrdersJSON = localStorage.getItem("tracked_orders");
+              let existingOrders = existingOrdersJSON
+                ? JSON.parse(existingOrdersJSON)
+                : [];
+
+              // Add this order if it doesn't exist
+              if (
+                !existingOrders.some(
+                  (order) =>
+                    order.id === (orderDetails.order_id || orderDetails.id)
+                )
+              ) {
+                // Limit to 5 most recent orders
+                existingOrders = [orderInfo, ...existingOrders.slice(0, 4)];
+                localStorage.setItem(
+                  "tracked_orders",
+                  JSON.stringify(existingOrders)
+                );
+              }
+
+              // Store the menu URL for order tracking page
+              const menuUrl = `/menu/${vendorId}/${encodeURIComponent(
+                tableIdentifier
+              )}`;
+              localStorage.setItem("last_menu_url", menuUrl);
             }
 
             const menuUrl = `/menu/${vendorId}/${encodeURIComponent(
@@ -129,43 +222,79 @@ export default function PaymentResult() {
 
   // Helper functions
   const getReturnUrl = () => {
-    if (!orderDetails) return "/";
+    if (!orderDetails || !orderDetails.vendor) return "/";
     const vendorId = orderDetails.vendor.id;
     const tableIdentifier = orderDetails.qr_code || orderDetails.table_name;
     return `/menu/${vendorId}/${encodeURIComponent(tableIdentifier)}`;
   };
 
   const handleManualReturn = () => {
-    if (status === "success" && orderDetails) {
+    if (status === "success" && orderDetails && orderDetails.vendor) {
       const vendorId = orderDetails.vendor.id;
       const tableIdentifier = orderDetails.qr_code || orderDetails.table_name;
       localStorage.setItem(`clear_cart_${vendorId}_${tableIdentifier}`, "true");
+
+      // Store the order info in localStorage for tracking
+      const orderInfo = {
+        id: orderDetails.order_id || orderDetails.id,
+        invoice: orderDetails.invoice_no,
+        status: orderDetails.status,
+        timestamp: orderDetails.timestamp,
+        stored_at: new Date().toISOString(),
+      };
+
+      // Get existing orders from localStorage
+      const existingOrdersJSON = localStorage.getItem("tracked_orders");
+      let existingOrders = existingOrdersJSON
+        ? JSON.parse(existingOrdersJSON)
+        : [];
+
+      // Add this order if it doesn't exist
+      if (!existingOrders.some((order) => order.id === orderDetails.order_id)) {
+        // Limit to 5 most recent orders
+        existingOrders = [orderInfo, ...existingOrders.slice(0, 4)];
+        localStorage.setItem("tracked_orders", JSON.stringify(existingOrders));
+      }
+
+      // Store the menu URL for order tracking page
+      const menuUrl = getReturnUrl();
+      localStorage.setItem("last_menu_url", menuUrl);
     }
   };
 
   const downloadReceipt = () => {
+    if (!orderDetails) return;
+
     const receiptContent = `
 ORDER RECEIPT
 =============
 
-Order ID: #${orderDetails.order_id}
+Order ID: #${orderDetails.order_id || orderDetails.id || "N/A"}
 ${orderDetails.invoice_no ? `Invoice: ${orderDetails.invoice_no}` : ""}
-Date: ${new Date(orderDetails.timestamp).toLocaleString()}
-Table: ${orderDetails.table_name}
-Status: ${orderDetails.status}
+Date: ${
+      orderDetails.timestamp
+        ? new Date(orderDetails.timestamp).toLocaleString()
+        : "N/A"
+    }
+Table: ${orderDetails.table_name || "N/A"}
+Status: ${orderDetails.status || "N/A"}
 
 ITEMS:
 ------
-${orderDetails.items
-  .map(
-    (item) =>
-      `${item.quantity}x ${item.name} - Rs. ${(
-        item.price * item.quantity
-      ).toFixed(2)}`
-  )
-  .join("\n")}
+${
+  orderDetails.items && orderDetails.items.length > 0
+    ? orderDetails.items
+        .map(
+          (item) =>
+            `${item.quantity || 0}x ${item.name || "Unknown"} - Rs. ${(
+              (item.price || 0) * (item.quantity || 0)
+            ).toFixed(2)}`
+        )
+        .join("\n")
+    : "No items found"
+}
 
-TOTAL: Rs. ${orderDetails.total_amount}
+TOTAL: Rs. ${orderDetails.total_amount || "0.00"}
 
 ${
   orderDetails.transaction_id
@@ -173,15 +302,17 @@ ${
     : ""
 }
 
-Restaurant: ${orderDetails.vendor.name}
-${orderDetails.vendor.phone ? `Phone: ${orderDetails.vendor.phone}` : ""}
+Restaurant: ${orderDetails.vendor?.name || "N/A"}
+${orderDetails.vendor?.phone ? `Phone: ${orderDetails.vendor.phone}` : ""}
     `;
 
     const blob = new Blob([receiptContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `receipt-${orderDetails.order_id}.txt`;
+    a.download = `receipt-${
+      orderDetails.order_id || orderDetails.id || "order"
+    }.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -190,9 +321,13 @@ ${orderDetails.vendor.phone ? `Phone: ${orderDetails.vendor.phone}` : ""}
   };
 
   const shareReceipt = async () => {
+    if (!orderDetails) return;
+
     const shareData = {
       title: "Order Receipt",
-      text: `Order #${orderDetails.order_id} - Rs. ${orderDetails.total_amount}`,
+      text: `Order #${
+        orderDetails.order_id || orderDetails.id || "N/A"
+      } - Rs. ${orderDetails.total_amount || "0.00"}`,
       url: window.location.href,
     };
 
@@ -305,7 +440,9 @@ ${orderDetails.vendor.phone ? `Phone: ${orderDetails.vendor.phone}` : ""}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date & Time</span>
                   <span className="font-medium">
-                    {new Date(orderDetails.timestamp).toLocaleString()}
+                    {orderDetails?.timestamp
+                      ? new Date(orderDetails.timestamp).toLocaleString()
+                      : "N/A"}
                   </span>
                 </div>
               </div>
@@ -313,15 +450,17 @@ ${orderDetails.vendor.phone ? `Phone: ${orderDetails.vendor.phone}` : ""}
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Table</span>
-                  <span className="font-medium">{orderDetails.table_name}</span>
+                  <span className="font-medium">
+                    {orderDetails?.table_name || "N/A"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status</span>
                   <span className="font-medium capitalize px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                    {orderDetails.status}
+                    {orderDetails?.status || "pending"}
                   </span>
                 </div>
-                {orderDetails.transaction_id && (
+                {orderDetails?.transaction_id && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
                       Transaction ID
@@ -339,29 +478,35 @@ ${orderDetails.vendor.phone ? `Phone: ${orderDetails.vendor.phone}` : ""}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Ordered Items</h3>
             <div className="space-y-3">
-              {orderDetails.items.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex justify-between items-center py-2 border-b border-border last:border-b-0"
-                >
-                  <div>
-                    <span className="font-medium">{item.name}</span>
-                    <span className="text-muted-foreground ml-2">
-                      ×{item.quantity}
+              {orderDetails?.items && orderDetails.items.length > 0 ? (
+                orderDetails.items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center py-2 border-b border-border last:border-b-0"
+                  >
+                    <div>
+                      <span className="font-medium">{item.name}</span>
+                      <span className="text-muted-foreground ml-2">
+                        ×{item.quantity}
+                      </span>{" "}
+                    </div>
+                    <span className="font-medium">
+                      Rs. {(item.price * item.quantity).toFixed(2)}
                     </span>
                   </div>
-                  <span className="font-medium">
-                    Rs. {(item.price * item.quantity).toFixed(2)}
-                  </span>
+                ))
+              ) : (
+                <div className="text-center text-muted-foreground py-4">
+                  No items found for this order
                 </div>
-              ))}
+              )}
             </div>
 
             <div className="border-t border-border pt-4">
               <div className="flex justify-between items-center text-lg font-bold">
                 <span>Total Amount</span>
                 <span className="text-primary">
-                  Rs. {orderDetails.total_amount}
+                  Rs. {orderDetails?.total_amount || "N/A"}
                 </span>
               </div>
             </div>
@@ -415,6 +560,24 @@ ${orderDetails.vendor.phone ? `Phone: ${orderDetails.vendor.phone}` : ""}
                 </>
               )}
             </div>
+
+            {/* Track Order Button for successful payments */}
+            {status === "success" && orderDetails && (
+              <Button
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => {
+                  // Store order ID in localStorage for order tracking
+                  localStorage.setItem(
+                    "current_order_id",
+                    (orderDetails.order_id || orderDetails.id).toString()
+                  );
+                  window.location.href = "/order-tracking";
+                }}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Track Your Order
+              </Button>
+            )}
 
             {status === "success" && countdown > 0 && (
               <div className="flex items-center justify-center text-sm text-muted-foreground bg-muted/50 rounded-lg py-3">

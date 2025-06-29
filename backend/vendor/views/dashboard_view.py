@@ -15,7 +15,7 @@ import calendar
 import logging
 import os
 
-from ..models import Order, MenuItem
+from ..models import Order, MenuItem, Table
 
 logger = logging.getLogger(__name__)
 
@@ -262,29 +262,22 @@ class DashboardStatsView(APIView):
                 logger.error(f"Error calculating revenue: {str(e)}")
                 total_revenue = Decimal('0.0')
             
-            # Calculate unique customers with error handling
+            # Calculate total tables with error handling
             try:
-                # First try with both table_no and table_qr
-                if hasattr(Order, 'table_no') and hasattr(Order, 'table_qr'):
-                    unique_tables = Order.objects.filter(vendor=vendor).values('table_no', 'table_qr').distinct().count()
-                # Fallback to just table_no if table_qr doesn't exist
-                elif hasattr(Order, 'table_no'):
-                    unique_tables = Order.objects.filter(vendor=vendor).values('table_no').exclude(table_no=None).distinct().count()
-                else:
-                    unique_tables = 0
-                
-                # Estimate customers as tables * 2 or minimum 1
-                total_customers = max(unique_tables * 2, 1)
-                logger.info(f"Estimated customers for vendor {vendor_id}: {total_customers} (based on {unique_tables} tables)")
+                total_tables = Table.objects.filter(
+                    vendor=vendor,
+                    is_active=True
+                ).count()
+                logger.info(f"Total active tables for vendor {vendor_id}: {total_tables}")
             except Exception as e:
-                logger.error(f"Error calculating customers: {str(e)}")
-                total_customers = 1
+                logger.error(f"Error counting tables: {str(e)}")
+                total_tables = 0
             
             # Return all statistics
             response_data = {
                 'total_orders': total_orders,
                 'active_items': active_items,
-                'total_customers': total_customers,
+                'total_tables': total_tables,
                 'total_revenue': float(total_revenue)
             }
             
