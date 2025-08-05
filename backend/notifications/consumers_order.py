@@ -272,6 +272,64 @@ class OrderTrackingConsumer(AsyncWebsocketConsumer):
             logger.error(f"[OrderTrackingConsumer] Error sending order status update via WebSocket: {e}")
             logger.exception("[OrderTrackingConsumer] Full traceback:")
             
+    async def delivery_issue_update(self, event):
+        """Handle delivery issue notifications"""
+        try:
+            logger.info(f"[OrderTrackingConsumer] Received delivery_issue_update event for order {self.order_id}")
+            data = event['data']
+            logger.debug(f"[OrderTrackingConsumer] Delivery issue data: {data}")
+            
+            # Extract order info from the nested structure
+            delivery_data = data.get('data', {})
+            order_id = delivery_data.get('order_id')
+            
+            # Only send updates relevant to this order
+            if order_id == int(self.order_id):
+                logger.info(f"[OrderTrackingConsumer] Delivery issue is for our order {self.order_id}")
+                
+                # Serialize data to handle UUIDs, Decimals, etc.
+                serialized_data = self.serialize_for_json(delivery_data)
+                
+                await self.send(text_data=json.dumps({
+                    'type': 'delivery_issue',
+                    'data': serialized_data
+                }))
+                logger.info(f"[OrderTrackingConsumer] Successfully sent delivery issue update for order {self.order_id}")
+            else:
+                logger.debug(f"[OrderTrackingConsumer] Delivery issue not for our order: received {order_id}, expected {self.order_id}")
+        except Exception as e:
+            logger.error(f"[OrderTrackingConsumer] Error handling delivery_issue_update: {e}")
+            logger.exception("[OrderTrackingConsumer] Full traceback:")
+            
+    async def issue_resolution_update(self, event):
+        """Handle issue resolution notifications"""
+        try:
+            logger.info(f"[OrderTrackingConsumer] Received issue_resolution_update event for order {self.order_id}")
+            data = event['data']
+            logger.debug(f"[OrderTrackingConsumer] Issue resolution data: {data}")
+            
+            # Extract order info from the nested structure
+            resolution_data = data.get('data', {})
+            order_id = resolution_data.get('order_id')
+            
+            # Only send updates relevant to this order
+            if order_id == int(self.order_id):
+                logger.info(f"[OrderTrackingConsumer] Issue resolution is for our order {self.order_id}")
+                
+                # Serialize data to handle UUIDs, Decimals, etc.
+                serialized_data = self.serialize_for_json(resolution_data)
+                
+                await self.send(text_data=json.dumps({
+                    'type': 'issue_resolution',
+                    'data': serialized_data
+                }))
+                logger.info(f"[OrderTrackingConsumer] Successfully sent issue resolution update for order {self.order_id}")
+            else:
+                logger.debug(f"[OrderTrackingConsumer] Issue resolution not for our order: received {order_id}, expected {self.order_id}")
+        except Exception as e:
+            logger.error(f"[OrderTrackingConsumer] Error handling issue_resolution_update: {e}")
+            logger.exception("[OrderTrackingConsumer] Full traceback:")
+            
     def get_timestamp(self):
         """Get current timestamp in milliseconds"""
         try:

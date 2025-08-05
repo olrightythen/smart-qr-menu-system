@@ -34,23 +34,33 @@ export const NotificationProvider = ({ children }) => {
       console.log("Received WebSocket notification:", data);
 
       try {
+        // Extract notification data - handle nested structure for vendor_notification
+        let notificationData;
+        if (data.type === "vendor_notification" && data.data) {
+          // For vendor_notification, the actual notification is in data.data
+          notificationData = data.data;
+        } else {
+          // For direct notifications, use data directly
+          notificationData = data;
+        }
+
         // Validate required fields
-        if (!data || !data.title || typeof data.title !== "string") {
+        if (!notificationData || !notificationData.title || typeof notificationData.title !== "string") {
           console.warn("Invalid notification data received:", data);
           return;
         }
 
         const notification = {
           id:
-            data.id ||
+            notificationData.id ||
             `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          type: data.type || "info",
-          title: data.title,
-          message: data.message || "",
+          type: notificationData.type || "info",
+          title: notificationData.title,
+          message: notificationData.message || "",
           timestamp: data.timestamp || new Date().toISOString(),
           created_at: data.timestamp || new Date().toISOString(),
           read: false,
-          data: data.data || {},
+          data: notificationData.data || {},
         };
 
         setNotifications((prev) => {
@@ -78,25 +88,25 @@ export const NotificationProvider = ({ children }) => {
         });
 
         // Show toast notification based on type
-        if (data.type === "new_order") {
+        if (notificationData.type === "new_order") {
           toast.success(
-            `🛒 New order #${data.data?.order_id || "Unknown"} received!`,
+            `🛒 New order #${notificationData.data?.order_id || "Unknown"} received!`,
             {
               duration: 5000,
               icon: "🔔",
             }
           );
-        } else if (data.type === "payment") {
+        } else if (notificationData.type === "payment") {
           toast.success(
             `💰 Payment received for order #${
-              data.data?.order_id || "Unknown"
+              notificationData.data?.order_id || "Unknown"
             }`,
             {
               duration: 4000,
               icon: "💳",
             }
           );
-        } else if (data.type === "order_status") {
+        } else if (notificationData.type === "order_status") {
           // Suppress status update toasts when on the orders page
           const isOnOrdersPage =
             typeof window !== "undefined" &&
@@ -105,7 +115,7 @@ export const NotificationProvider = ({ children }) => {
           // Only show toast if not on orders page to avoid duplicates
           if (!isOnOrdersPage) {
             toast(
-              `📋 Order #${data.data?.order_id || "Unknown"} status updated`,
+              `📋 Order #${notificationData.data?.order_id || "Unknown"} status updated`,
               {
                 duration: 4000,
                 icon: "📋",
@@ -114,7 +124,7 @@ export const NotificationProvider = ({ children }) => {
           } else {
             console.log(
               "Suppressed order status toast on orders page:",
-              data.data?.order_id
+              notificationData.data?.order_id
             );
           }
         }

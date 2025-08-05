@@ -169,7 +169,7 @@ const Cart = ({ vendorId, tableNo }) => {
             )}
           </Button>
         </SheetTrigger>
-        <SheetContent>
+        <SheetContent className="overflow-y-auto">
           <SheetHeader className="flex flex-row items-center justify-between">
             <SheetTitle>Your Cart</SheetTitle>
             {/* Connection status indicator */}

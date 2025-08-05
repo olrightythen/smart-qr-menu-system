@@ -82,7 +82,17 @@ def send_order_update(order_id, order_data=None):
                 "message": f"Order {order.id} status is now {order.status}",
                 # Include vendor and table info for proper channel routing
                 "vendor_id": order.vendor_id,
-                "table_identifier": table_identifier
+                "table_identifier": table_identifier,
+                # Include delivery issue fields for real-time updates
+                "delivery_issue_reported": getattr(order, 'delivery_issue_reported', False),
+                "issue_report_timestamp": order.issue_report_timestamp.isoformat() if getattr(order, 'issue_report_timestamp', None) else None,
+                "issue_description": getattr(order, 'issue_description', None),
+                "issue_resolved": getattr(order, 'issue_resolved', False),
+                "issue_resolution_timestamp": order.issue_resolution_timestamp.isoformat() if getattr(order, 'issue_resolution_timestamp', None) else None,
+                "resolution_message": getattr(order, 'resolution_message', None),
+                # Include customer verification fields for real-time updates
+                "customer_verified": getattr(order, 'customer_verified', False),
+                "verification_timestamp": order.verification_timestamp.isoformat() if getattr(order, 'verification_timestamp', None) else None,
             }
         
         channel_layer = get_channel_layer()

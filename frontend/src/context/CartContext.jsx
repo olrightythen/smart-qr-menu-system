@@ -119,6 +119,7 @@ export const CartProvider = ({
             status === "confirmed" ||
             status === "preparing" ||
             status === "ready" ||
+            status === "delivered" ||
             status === "completed"
           ) {
             // If order is confirmed (paid) or later stages, clear the cart
@@ -126,9 +127,16 @@ export const CartProvider = ({
             // Only show status update toasts for non-payment related statuses
             // Payment success is handled by the payment result page
             if (status !== "confirmed") {
-              toast.success(`Order #${order_id} is now ${status}!`, {
+              let message = `Order #${order_id} is now ${status}!`;
+              if (status === "delivered") {
+                message = `Order #${order_id} has been delivered! Please verify receipt on the order tracking page.`;
+              } else if (status === "completed") {
+                message = `Order #${order_id} is completed and verified. Thank you!`;
+              }
+
+              toast.success(message, {
                 id: toastId,
-                duration: 4000,
+                duration: status === "delivered" ? 8000 : 4000, // Longer duration for delivery notification
               });
             }
           }

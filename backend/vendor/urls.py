@@ -3,7 +3,7 @@ from .views.auth_view import VendorRegisterView, VendorLoginView
 from .views.menu_view import CreateMenuView, MenuItemListView, MenuItemDetailView, ToggleMenuItemAvailabilityView
 from .views.menu_view import PublicMenuView
 from .views.payment_view import EsewaPaymentVerifyView, EsewaInitiatePaymentView
-from .views.order_view import OrderListView, OrderStatusUpdateView, OrderDetailsView, TrackOrderView, CreateOrderView, OrderStatusView
+from .views.order_view import OrderListView, OrderStatusUpdateView, OrderDetailsView, TrackOrderView, CreateOrderView, OrderStatusView, OrderVerificationView, OrderIssueReportView, OrderIssueResolutionView
 from .views.table_view import TableListView, TableCreateView, TableDeleteView, TableRegenerateQRView
 from .views.table_view import TableToggleAvailabilityView, TableRenameView, PublicTableStatusView
 from .views.active_orders_view import ActiveOrdersView
@@ -35,6 +35,9 @@ urlpatterns = [
     path('public-menu/<int:vendor_id>/', PublicMenuView.as_view(), name='public_menu'),    # Order URLs
     path('orders/create/', CreateOrderView.as_view(), name='create_order'),
     path('orders/<int:order_id>/status/', OrderStatusView.as_view(), name='order_status_check'),
+    path('orders/<int:order_id>/verify-completion/', OrderVerificationView.as_view(), name='order_verify_completion'),
+    path('orders/<int:order_id>/report-issue/', OrderIssueReportView.as_view(), name='order_report_issue'),
+    path('orders/<int:order_id>/resolve-issue/', OrderIssueResolutionView.as_view(), name='order_resolve_issue'),
     path('orders/<int:vendor_id>/', OrderListView.as_view(), name='order_list'),
     path('orders/<int:order_id>/update-status/', OrderStatusUpdateView.as_view(), name='order_status_update'),
     path('order/<int:order_id>/', OrderDetailsView.as_view(), name='order_details'),

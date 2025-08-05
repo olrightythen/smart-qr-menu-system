@@ -170,14 +170,15 @@ class EsewaPaymentVerifyView(View):
             logger.warning(f"Amount mismatch: expected {order.total_amount}, got {formatted_total_amount}")
             return HttpResponseRedirect(f'http://localhost:3000/payment-result?status=failed&reason=amount-mismatch&invoice_no={transaction_uuid}')
             
-        # Update order status
+        # Update order status and payment method
         old_status = order.status
         order.payment_status = "paid"
         order.status = "confirmed"
+        order.payment_method = "esewa"  # Set payment method to esewa after successful payment
         order.transaction_id = transaction_code
         order.save()
         
-        logger.info(f"Order {order.id} has been paid and verified. Transaction: {transaction_code}")
+        logger.info(f"Order {order.id} has been paid and verified. Payment method set to eSewa. Transaction: {transaction_code}")
         
         # Send real-time update through WebSocket
         try:

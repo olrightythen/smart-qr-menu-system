@@ -76,7 +76,13 @@ class OrderListView(APIView):
                     'created_at': order.created_at.isoformat(),
                     'timestamp': order.created_at.isoformat(),
                     'time_elapsed': time_elapsed,
-                    'items': items_data
+                    'items': items_data,
+                    # Customer verification and delivery issue fields
+                    'customer_verified': getattr(order, 'customer_verified', False),
+                    'verification_timestamp': order.verification_timestamp.isoformat() if getattr(order, 'verification_timestamp', None) else None,
+                    'delivery_issue_reported': getattr(order, 'delivery_issue_reported', False),
+                    'issue_report_timestamp': order.issue_report_timestamp.isoformat() if getattr(order, 'issue_report_timestamp', None) else None,
+                    'issue_description': getattr(order, 'issue_description', None),
                 })
             
             return Response({
@@ -851,3 +857,268 @@ class OrderStatusView(APIView):
         except Exception as e:
             logger.error(f"Error resolving table name for order {order.id}: {e}")
             return "Unknown Table"
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class OrderVerificationView(View):
+    """API endpoint for customers to verify order completion"""
+    
+    def post(self, request, order_id):
+        """Verify that customer has received their order"""
+        try:
+            # Parse JSON data
+            data = json.loads(request.body.decode('utf-8'))
+            
+            # Get the order
+            order = get_object_or_404(Order, id=order_id)
+            
+            # Validate that order is in delivered status
+            if order.status != 'delivered':
+                return JsonResponse({
+                    'error': 'Order must be in delivered status to verify completion',
+                    'current_status': order.status
+                }, status=400)
+            
+            # Check if already verified
+            if order.customer_verified:
+                return JsonResponse({
+                    'message': 'Order has already been verified',
+                    'verification_timestamp': order.verification_timestamp.isoformat() if order.verification_timestamp else None
+                })
+            
+            # Verify the order
+            order.customer_verified = data.get('verified', True)
+            order.verification_timestamp = timezone.now()
+            order.status = 'completed'  # Move to completed status after verification
+            order.save()
+            
+            # Send WebSocket update for status change
+            try:
+                send_order_update(order.id)
+                logger.info(f"Sent WebSocket update for order {order.id} verification")
+            except Exception as e:
+                logger.error(f"Failed to send WebSocket update for order {order.id}: {e}")
+            
+            # Send notification to vendor
+            try:
+                notification_facade.create_vendor_notification(
+                    vendor=order.vendor,
+                    title="Order Verified",
+                    message=f"Customer has verified receipt of Order #{order.id}",
+                    notification_type="order_verified",
+                    data={'order_id': order.id}
+                )
+                logger.info(f"Sent verification notification for order {order.id}")
+            except Exception as e:
+                logger.error(f"Failed to send verification notification for order {order.id}: {e}")
+            
+            return JsonResponse({
+                'message': 'Order verification successful',
+                'order_id': order.id,
+                'status': order.status,
+                'verified': order.customer_verified,
+                'verification_timestamp': order.verification_timestamp.isoformat()
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            logger.error(f"Error verifying order {order_id}: {e}")
+            return JsonResponse({
+                'error': 'Failed to verify order',
+                'details': str(e)
+            }, status=500)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class OrderIssueReportView(View):
+    """API endpoint for customers to report delivery issues"""
+    
+    def post(self, request, order_id):
+        """Report that customer did not receive their order"""
+        try:
+            # Parse JSON data
+            data = json.loads(request.body.decode('utf-8'))
+            
+            # Get the order
+            order = get_object_or_404(Order, id=order_id)
+            
+            # Validate that order is in delivered status
+            if order.status != 'delivered':
+                return JsonResponse({
+                    'error': 'Order must be in delivered status to report delivery issues',
+                    'current_status': order.status
+                }, status=400)
+            
+            # Check if issue already reported
+            if order.delivery_issue_reported:
+                return JsonResponse({
+                    'message': 'Delivery issue has already been reported for this order',
+                    'issue_report_timestamp': order.issue_report_timestamp.isoformat() if order.issue_report_timestamp else None
+                })
+            
+            # Report the issue
+            order.delivery_issue_reported = True
+            order.issue_report_timestamp = timezone.now()
+            order.issue_description = data.get('description', 'Customer reports not receiving the delivered order')
+            order.save()
+            
+            # Send WebSocket update to vendor (status remains delivered but with issue flag)
+            try:
+                send_order_update(order.id)
+                logger.info(f"Sent WebSocket update for order {order.id} issue report")
+                
+                # Also send a specific delivery issue notification to the customer's order tracking
+                from channels.layers import get_channel_layer
+                from asgiref.sync import async_to_sync
+                
+                channel_layer = get_channel_layer()
+                
+                # Send to order-specific channel for customer's order tracking page
+                delivery_issue_data = {
+                    'type': 'delivery_issue',
+                    'data': {
+                        'order_id': order.id,
+                        'delivery_issue_reported': True,
+                        'issue_report_timestamp': order.issue_report_timestamp.isoformat(),
+                        'issue_description': order.issue_description,
+                    }
+                }
+                
+                async_to_sync(channel_layer.group_send)(
+                    f'order_{order.id}',
+                    {
+                        'type': 'delivery_issue_update',
+                        'data': delivery_issue_data
+                    }
+                )
+                logger.info(f"Sent delivery issue notification to customer tracking for order {order.id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to send WebSocket update for order {order.id}: {e}")
+            
+            # Send urgent notification to vendor
+            try:
+                issue_type = data.get('issue_type', 'delivery_not_received')
+                notification_facade.create_vendor_notification(
+                    vendor=order.vendor,
+                    title="⚠️ Delivery Issue Reported",
+                    message=f"Customer reports delivery issue for Order #{order.id}: {order.issue_description}",
+                    notification_type="delivery_issue",
+                    data={
+                        'order_id': order.id,
+                        'issue_type': issue_type,
+                        'urgency': 'high'
+                    }
+                )
+                logger.info(f"Sent delivery issue notification for order {order.id}")
+            except Exception as e:
+                logger.error(f"Failed to send delivery issue notification for order {order.id}: {e}")
+            
+            return JsonResponse({
+                'message': 'Delivery issue reported successfully. The restaurant has been notified.',
+                'order_id': order.id,
+                'issue_reported': order.delivery_issue_reported,
+                'issue_report_timestamp': order.issue_report_timestamp.isoformat(),
+                'issue_description': order.issue_description
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            logger.error(f"Error reporting delivery issue for order {order_id}: {e}")
+            return JsonResponse({
+                'error': 'Failed to report delivery issue',
+                'details': str(e)
+            }, status=500)
+
+
+class OrderIssueResolutionView(APIView):
+    """API endpoint for vendors to mark delivery issues as resolved"""
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, order_id):
+        """Mark delivery issue as resolved"""
+        try:
+            # Parse JSON data
+            data = json.loads(request.body.decode('utf-8'))
+            
+            # Get the order
+            order = get_object_or_404(Order, id=order_id)
+            
+            # Check if user is the vendor for this order
+            if request.user.id != order.vendor_id:
+                return JsonResponse({
+                    'error': 'Unauthorized: You can only resolve issues for your own orders'
+                }, status=403)
+            
+            # Validate that order has a reported delivery issue
+            if not order.delivery_issue_reported:
+                return JsonResponse({
+                    'error': 'No delivery issue reported for this order',
+                    'delivery_issue_reported': order.delivery_issue_reported
+                }, status=400)
+            
+            # Check if issue already resolved
+            if getattr(order, 'issue_resolved', False):
+                return JsonResponse({
+                    'message': 'Delivery issue has already been resolved for this order',
+                    'issue_resolution_timestamp': getattr(order, 'issue_resolution_timestamp', None).isoformat() if getattr(order, 'issue_resolution_timestamp', None) else None
+                })
+            
+            # Mark the issue as resolved
+            order.issue_resolved = True
+            order.issue_resolution_timestamp = timezone.now()
+            order.resolution_message = data.get('resolution_message', 'Issue has been resolved by the restaurant')
+            order.save()
+            
+            # Send WebSocket update to customer's order tracking
+            try:
+                from channels.layers import get_channel_layer
+                from asgiref.sync import async_to_sync
+                
+                channel_layer = get_channel_layer()
+                
+                # Send to order-specific channel for customer's order tracking page
+                resolution_data = {
+                    'type': 'issue_resolution',
+                    'data': {
+                        'order_id': order.id,
+                        'issue_resolved': True,
+                        'resolution_timestamp': order.issue_resolution_timestamp.isoformat(),
+                        'resolution_message': order.resolution_message,
+                    }
+                }
+                
+                async_to_sync(channel_layer.group_send)(
+                    f'order_{order.id}',
+                    {
+                        'type': 'issue_resolution_update',
+                        'data': resolution_data
+                    }
+                )
+                logger.info(f"Sent issue resolution notification to customer tracking for order {order.id}")
+                
+                # Also send updated order status to vendor dashboard
+                send_order_update(order.id)
+                
+            except Exception as e:
+                logger.error(f"Failed to send WebSocket update for order {order.id} resolution: {e}")
+            
+            return JsonResponse({
+                'message': 'Delivery issue marked as resolved. Customer has been notified.',
+                'order_id': order.id,
+                'issue_resolved': order.issue_resolved,
+                'issue_resolution_timestamp': order.issue_resolution_timestamp.isoformat(),
+                'resolution_message': order.resolution_message
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            logger.error(f"Error resolving delivery issue for order {order_id}: {e}")
+            return JsonResponse({
+                'error': 'Failed to resolve delivery issue',
+                'details': str(e)
+            }, status=500)

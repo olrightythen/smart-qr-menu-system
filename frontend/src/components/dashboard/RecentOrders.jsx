@@ -17,6 +17,7 @@ const statusStyles = {
     "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
   ready:
     "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  delivered: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
   completed:
     "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
@@ -142,8 +143,10 @@ export default function RecentOrders() {
         return "Preparing";
       case "ready":
         return "Ready for Pickup";
+      case "delivered":
+        return "Delivered";
       case "completed":
-        return "Completed";
+        return "Completed & Verified";
       case "cancelled":
         return "Cancelled";
       default:

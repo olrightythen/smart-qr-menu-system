@@ -30,6 +30,10 @@ class NotificationFacade:
         """Send system notification"""
         return self.notification_service.create_notification(vendor, title, message, 'system', data)
     
+    def create_vendor_notification(self, vendor: User, title: str, message: str, notification_type: str = 'system', data: dict = None):
+        """Create a vendor notification"""
+        return self.notification_service.create_notification(vendor, title, message, notification_type, data)
+    
     def mark_as_read(self, notification_id: int, vendor: User):
         """Mark notification as read"""
         return self.notification_service.mark_as_read(notification_id, vendor)

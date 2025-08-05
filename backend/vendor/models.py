@@ -75,6 +75,7 @@ class Order(models.Model):
         ('rejected', 'Rejected'),
         ('preparing', 'Preparing'),
         ('ready', 'Ready for Pickup'),
+        ('delivered', 'Delivered'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     )
@@ -96,6 +97,18 @@ class Order(models.Model):
         ('esewa', 'E-Sewa'),
         ('cash', 'Cash'),
     ], default='cash')
+    
+    # Customer verification fields
+    customer_verified = models.BooleanField(default=False, help_text="Whether customer has verified receiving the order")
+    verification_timestamp = models.DateTimeField(null=True, blank=True, help_text="When customer verified the order")
+    delivery_issue_reported = models.BooleanField(default=False, help_text="Whether customer reported not receiving the order")
+    issue_report_timestamp = models.DateTimeField(null=True, blank=True, help_text="When the delivery issue was reported")
+    issue_description = models.TextField(blank=True, null=True, help_text="Description of the delivery issue")
+    
+    # Issue resolution fields
+    issue_resolved = models.BooleanField(default=False, help_text="Whether vendor has resolved the delivery issue")
+    issue_resolution_timestamp = models.DateTimeField(null=True, blank=True, help_text="When the delivery issue was resolved")
+    resolution_message = models.TextField(blank=True, null=True, help_text="Vendor's message about how the issue was resolved")
 
     def __str__(self):
         return f"Order #{self.id} - {self.vendor.restaurant_name}"

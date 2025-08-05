@@ -56,12 +56,20 @@ const orderStatuses = {
     label: "Ready for Pickup",
     description: "Your order is ready! Please come to collect it",
   },
+  delivered: {
+    icon: Package,
+    color: "text-blue-500",
+    bg: "bg-blue-100 dark:bg-blue-950/60",
+    label: "Delivered by Restaurant",
+    description:
+      "Restaurant has marked your order as delivered. Please verify that you have received your food.",
+  },
   completed: {
     icon: Utensils,
     color: "text-green-600",
     bg: "bg-green-100 dark:bg-green-950/60",
-    label: "Completed",
-    description: "Order completed successfully. Thank you!",
+    label: "Completed & Verified",
+    description: "Order completed and verified by customer. Thank you!",
   },
   cancelled: {
     icon: XCircle,
@@ -215,6 +223,25 @@ const useOrderWebSocket = (orderId, initialOrder = null) => {
                   updatedAt: new Date(
                     data.data.updated_at || data.data.updatedAt
                   ),
+                  // Update delivery issue fields if present
+                  ...(data.data.delivery_issue_reported !== undefined && {
+                    delivery_issue_reported: Boolean(
+                      data.data.delivery_issue_reported
+                    ),
+                    issue_report_timestamp:
+                      data.data.issue_report_timestamp ||
+                      prevOrder.issue_report_timestamp,
+                    issue_description:
+                      data.data.issue_description ||
+                      prevOrder.issue_description,
+                  }),
+                  // Update customer verification fields if present
+                  ...(data.data.customer_verified !== undefined && {
+                    customer_verified: Boolean(data.data.customer_verified),
+                    verification_timestamp:
+                      data.data.verification_timestamp ||
+                      prevOrder.verification_timestamp,
+                  }),
                   // Recalculate estimated time based on new status
                   estimatedTime: calculateEstimatedTime(
                     data.data.status,
@@ -243,6 +270,74 @@ const useOrderWebSocket = (orderId, initialOrder = null) => {
               setMenuUrl(newMenuUrl);
               localStorage.setItem("last_menu_url", newMenuUrl);
             }
+          }
+          // Handle delivery issue notifications
+          else if (
+            data.type === "delivery_issue" &&
+            data.data?.order_id == orderId
+          ) {
+            console.log("Received delivery issue notification:", data.data);
+            setOrderData((prevOrder) => {
+              if (!prevOrder) return prevOrder;
+
+              return {
+                ...prevOrder,
+                delivery_issue_reported: true,
+                issue_report_timestamp:
+                  data.data.issue_report_timestamp || new Date().toISOString(),
+                issue_description:
+                  data.data.issue_description ||
+                  "Customer reports not receiving the delivered order",
+              };
+            });
+          }
+          // Handle issue resolution notifications
+          else if (
+            data.type === "issue_resolution" &&
+            data.data?.order_id == orderId
+          ) {
+            console.log("Received issue resolution notification:", data.data);
+            setOrderData((prevOrder) => {
+              if (!prevOrder) return prevOrder;
+
+              return {
+                ...prevOrder,
+                issue_resolved: true,
+                issue_resolution_timestamp:
+                  data.data.resolution_timestamp || new Date().toISOString(),
+                resolution_message:
+                  data.data.resolution_message ||
+                  "Issue has been resolved by the restaurant",
+              };
+            });
+          }
+          // Handle customer verification notifications
+          else if (
+            (data.type === "customer_verification" ||
+              data.type === "verification") &&
+            (data.data?.order_id == orderId || data.order_id == orderId)
+          ) {
+            console.log(
+              "Received customer verification notification:",
+              data.data || data
+            );
+            const verificationData = data.data || data;
+            setOrderData((prevOrder) => {
+              if (!prevOrder) return prevOrder;
+
+              return {
+                ...prevOrder,
+                customer_verified: Boolean(
+                  verificationData.verified ||
+                    verificationData.customer_verified
+                ),
+                verification_timestamp:
+                  verificationData.verification_timestamp ||
+                  new Date().toISOString(),
+                // Update status to completed if verified
+                ...(verificationData.verified && { status: "completed" }),
+              };
+            });
           }
           // Handle pong responses
           else if (data.type === "pong") {
@@ -591,6 +686,7 @@ export default function OrderTracking() {
       "confirmed",
       "preparing",
       "ready",
+      "delivered",
       "completed",
     ];
 
@@ -611,6 +707,7 @@ export default function OrderTracking() {
       "confirmed",
       "preparing",
       "ready",
+      "delivered",
       "completed",
     ];
 
@@ -644,6 +741,116 @@ export default function OrderTracking() {
     return `${days} day${days !== 1 ? "s" : ""} ago`;
   };
 
+  // Function to verify order completion by customer
+  const verifyOrderCompletion = async (orderId) => {
+    if (!orderId) {
+      toast.error("Invalid order ID");
+      return;
+    }
+
+    try {
+      const apiBaseUrl = getApiBaseUrl();
+
+      const response = await fetch(
+        `${apiBaseUrl}/api/orders/${orderId}/verify-completion/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            verified: true,
+            verification_timestamp: new Date().toISOString(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Failed to verify order: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Order verification response:", data);
+
+      // Optimistically update the order state
+      setOrder((prevOrder) => {
+        if (!prevOrder) return prevOrder;
+
+        return {
+          ...prevOrder,
+          status: "completed",
+          customer_verified: true,
+          verification_timestamp: new Date().toISOString(),
+        };
+      });
+
+      toast.success("Thank you! Your order has been verified as completed.");
+    } catch (error) {
+      console.error("Error verifying order completion:", error);
+      toast.error(`Failed to verify order: ${error.message}`);
+    }
+  };
+
+  // Function to report delivery issue
+  const reportDeliveryIssue = async (orderId) => {
+    if (!orderId) {
+      toast.error("Invalid order ID");
+      return;
+    }
+
+    try {
+      const apiBaseUrl = getApiBaseUrl();
+
+      const response = await fetch(
+        `${apiBaseUrl}/api/orders/${orderId}/report-issue/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            issue_type: "delivery_not_received",
+            reported_timestamp: new Date().toISOString(),
+            description: "Customer reports not receiving the delivered order",
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Failed to report issue: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Issue report response:", data);
+
+      // Optimistically update the order state to show the delivery issue immediately
+      setOrder((prevOrder) => {
+        if (!prevOrder) return prevOrder;
+
+        return {
+          ...prevOrder,
+          delivery_issue_reported: true,
+          issue_report_timestamp: new Date().toISOString(),
+          issue_description:
+            "Customer reports not receiving the delivered order",
+        };
+      });
+
+      toast.success(
+        "Issue reported successfully. The restaurant will be notified to investigate."
+      );
+    } catch (error) {
+      console.error("Error reporting delivery issue:", error);
+      toast.error(`Failed to report issue: ${error.message}`);
+    }
+  };
+
   // Debug: Track orders state changes
   useEffect(() => {
     console.log("Orders state changed:", orders);
@@ -661,7 +868,7 @@ export default function OrderTracking() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background py-8">
+    <div className="min-h-screen bg-background pb-8">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border shadow-sm">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -706,7 +913,7 @@ export default function OrderTracking() {
       <div className="container mx-auto px-4 max-w-2xl">
         <Link
           href={menuUrl}
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-8"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground my-8"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Menu
@@ -971,32 +1178,168 @@ export default function OrderTracking() {
                 </div>
               </div>
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                {order.restaurant?.phone ? (
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() =>
-                      (window.location.href = `tel:${order.restaurant.phone}`)
-                    }
-                  >
-                    Call Restaurant
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="flex-1 opacity-50 cursor-not-allowed"
-                    disabled
-                  >
-                    Contact Unavailable
-                  </Button>
+              <div className="flex flex-col gap-3">
+                {/* Customer Verification Section for Delivered Orders */}
+                {order.status === "delivered" &&
+                  !order.customer_verified &&
+                  (!order.delivery_issue_reported || order.issue_resolved) && (
+                    <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-5 w-5 text-amber-600" />
+                        <h4 className="font-medium text-amber-800 dark:text-amber-200">
+                          ⚠️ Action Required: Verify Your Order
+                        </h4>
+                      </div>
+                      <p className="text-sm text-amber-700 dark:text-amber-300">
+                        {order.delivery_issue_reported &&
+                        order.issue_resolved ? (
+                          <>
+                            The restaurant has resolved your delivery issue and
+                            confirmed that your order is now available.{" "}
+                            <strong>
+                              Please verify that you have received your food.
+                            </strong>{" "}
+                            This confirms the resolution was successful.
+                          </>
+                        ) : (
+                          <>
+                            The restaurant has marked your order as delivered.{" "}
+                            <strong>
+                              Please confirm whether you have actually received
+                              your food at your table.
+                            </strong>{" "}
+                            This helps ensure order accuracy and prevents
+                            issues.
+                          </>
+                        )}
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          onClick={() => verifyOrderCompletion(order.id)}
+                          className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />✅ Yes, I
+                          Received My Order
+                        </Button>
+                        <Button
+                          onClick={() => reportDeliveryIssue(order.id)}
+                          variant="outline"
+                          className="flex-1 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/20"
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />❌ I Didn't
+                          Receive It
+                        </Button>
+                      </div>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                        💡 If you didn't receive your order, reporting it will
+                        immediately notify the restaurant to investigate and
+                        resolve the issue.
+                      </p>
+                    </div>
+                  )}
+
+                {/* Show verification confirmation for verified orders */}
+                {order.status === "completed" && order.customer_verified && (
+                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <h4 className="font-medium text-green-800 dark:text-green-200">
+                        ✅ Order Verified & Completed
+                      </h4>
+                    </div>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Thank you for confirming receipt of your order! Your order
+                      has been successfully completed.
+                    </p>
+                    {order.verification_timestamp && (
+                      <p className="text-xs text-green-600 dark:text-green-400">
+                        Verified on:{" "}
+                        {new Date(
+                          order.verification_timestamp
+                        ).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
                 )}
-                <Button
-                  asChild
-                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-                >
-                  <Link href={menuUrl}>Order Again</Link>
-                </Button>
+
+                {/* Show issue report confirmation */}
+                {order.delivery_issue_reported && !order.issue_resolved && (
+                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-5 w-5 text-red-600" />
+                      <h4 className="font-medium text-red-800 dark:text-red-200">
+                        🚨 Delivery Issue Reported
+                      </h4>
+                    </div>
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      Your delivery issue has been reported to the restaurant.
+                      They have been notified and should contact you or
+                      investigate the issue shortly.
+                    </p>
+                    {order.issue_report_timestamp && (
+                      <p className="text-xs text-red-600 dark:text-red-400">
+                        Reported on:{" "}
+                        {new Date(
+                          order.issue_report_timestamp
+                        ).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Show issue resolution confirmation */}
+                {order.delivery_issue_reported && order.issue_resolved && (
+                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <h4 className="font-medium text-green-800 dark:text-green-200">
+                        ✅ Issue Resolved by Restaurant
+                      </h4>
+                    </div>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      The restaurant has resolved your delivery issue. Your
+                      order should now be available for pickup or has been
+                      re-delivered.
+                    </p>
+                    {order.issue_resolution_timestamp && (
+                      <p className="text-xs text-green-600 dark:text-green-400">
+                        Resolved on:{" "}
+                        {new Date(
+                          order.issue_resolution_timestamp
+                        ).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Regular Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {order.restaurant?.phone ? (
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() =>
+                        (window.location.href = `tel:${order.restaurant.phone}`)
+                      }
+                    >
+                      Call Restaurant
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="flex-1 opacity-50 cursor-not-allowed"
+                      disabled
+                    >
+                      Contact Unavailable
+                    </Button>
+                  )}
+                  <Button
+                    asChild
+                    className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    <Link href={menuUrl}>Order Again</Link>
+                  </Button>
+                </div>
               </div>
             </div>
           )}

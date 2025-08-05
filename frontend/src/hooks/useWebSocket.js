@@ -177,10 +177,10 @@ export const useWebSocket = (onMessage) => {
             return;
           }
 
-          // Call onMessage for actual notifications
-          if (onMessageRef.current && data.type === "vendor_notification") {
-            console.log("Received vendor notification:", data.data);
-            onMessageRef.current(data.data);
+          // Call onMessage for actual notifications and order status updates
+          if (onMessageRef.current && (data.type === "vendor_notification" || data.type === "order_status")) {
+            console.log("Received WebSocket message:", data);
+            onMessageRef.current(data);
           }
         } catch (error) {
           console.error("Error parsing WebSocket message:", error);

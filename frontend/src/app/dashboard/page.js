@@ -27,9 +27,6 @@ export default function Dashboard() {
 
       <QuickStats />
 
-      {/* Sales Report - Full Width */}
-      <SalesReport />
-
       <div className="grid lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
           <RecentOrders />
@@ -38,6 +35,9 @@ export default function Dashboard() {
           <PopularItems />
         </div>
       </div>
+
+      {/* Sales Report - Full Width */}
+      <SalesReport />
 
       {/* Payment Summary - Full Width */}
       <PaymentSummary />
